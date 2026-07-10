@@ -127,7 +127,7 @@ on import since `errors.py` does not exist yet.
 
 ## Phase 4 — Loader: missing-file and malformed-YAML fail-fast
 
-- [ ] 4.1 (RED) Extend `test_loader.py`:
+- [x] 4.1 (RED) Extend `test_loader.py`:
       - non-existent path raises `ConfigFileNotFoundError`; message
         references `config.example.yaml`; no raw `FileNotFoundError`
         traceback surfaces as the exception type.
@@ -137,13 +137,13 @@ on import since `errors.py` does not exist yet.
       - a file whose top level is not a mapping, or lacks a `databases:`
         key, or whose `databases:` value is not a mapping, raises
         `ConfigParseError` with shape guidance.
-- [ ] 4.2 (GREEN) Implement the fail-fast gates in `loader.py`: path-exists
+- [x] 4.2 (GREEN) Implement the fail-fast gates in `loader.py`: path-exists
       check -> `ConfigFileNotFoundError`; `yaml.safe_load` wrapped in
       `try/except yaml.YAMLError` -> `ConfigParseError` (using `raise ...
       from exc` for debugger chaining only, never embedding `str(exc)` in
       the user-facing message); top-level/`databases:` shape check ->
       `ConfigParseError`.
-- [ ] 4.3 Run the Phase 4 subset of `test_loader.py` and confirm all pass.
+- [x] 4.3 Run the Phase 4 subset of `test_loader.py` and confirm all pass.
 
 ## Phase 5 — Loader: trim, duplicate-key, and validation pipeline
 

@@ -11,6 +11,7 @@ import pathlib
 
 import pytest
 
+from schema_comparator.config.errors import ConfigFileNotFoundError, ConfigParseError
 from schema_comparator.config.loader import load_profiles
 from schema_comparator.config.models import ConnectionProfile
 
@@ -71,3 +72,54 @@ def test_load_profiles_from_arbitrary_named_file_and_location(tmp_path: pathlib.
 
     assert len(profiles) == 1
     assert profiles[0].name == "only-service"
+
+
+# --- Phase 4: missing-file / malformed-YAML fail-fast ------------------------
+
+
+def test_missing_file_raises_config_file_not_found_error(tmp_path: pathlib.Path) -> None:
+    missing_path = tmp_path / "does-not-exist.yaml"
+
+    with pytest.raises(ConfigFileNotFoundError) as exc_info:
+        load_profiles(missing_path)
+
+    assert "config.example.yaml" in str(exc_info.value)
+
+
+def test_malformed_yaml_raises_config_parse_error(tmp_path: pathlib.Path) -> None:
+    # Unterminated flow mapping -> a YAML syntax error.
+    content = "databases: [unterminated"
+    config_path = _write_yaml(tmp_path, content)
+
+    with pytest.raises(ConfigParseError) as exc_info:
+        load_profiles(config_path)
+
+    message = str(exc_info.value)
+    assert "YAMLError" not in message
+    assert "ScannerError" not in message
+    assert "ParserError" not in message
+    assert "unterminated" not in message.lower()
+
+
+def test_non_mapping_top_level_raises_config_parse_error(tmp_path: pathlib.Path) -> None:
+    content = "- just\n- a\n- list\n"
+    config_path = _write_yaml(tmp_path, content)
+
+    with pytest.raises(ConfigParseError):
+        load_profiles(config_path)
+
+
+def test_missing_databases_key_raises_config_parse_error(tmp_path: pathlib.Path) -> None:
+    content = "not_databases:\n  a: b\n"
+    config_path = _write_yaml(tmp_path, content)
+
+    with pytest.raises(ConfigParseError):
+        load_profiles(config_path)
+
+
+def test_databases_not_a_mapping_raises_config_parse_error(tmp_path: pathlib.Path) -> None:
+    content = "databases:\n  - a\n  - b\n"
+    config_path = _write_yaml(tmp_path, content)
+
+    with pytest.raises(ConfigParseError):
+        load_profiles(config_path)
