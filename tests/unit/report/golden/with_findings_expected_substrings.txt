@@ -1,0 +1,10 @@
+Compared profiles: a, b, c
+<th>a</th>
+<th>b</th>
+<th>c</th>
+sales.Invoice
+sales.Payment
+class="diff-missing-column"
+class="diff-column-mismatch"
+class="diff-missing-table"
+class="cell-missing"

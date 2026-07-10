@@ -1,0 +1,3 @@
+Compared profiles: a, b
+class="no-drift"
+No drift detected across all compared profiles.

@@ -1,0 +1,36 @@
+/* Minimal classless base stylesheet inlined into the report template.
+   Not the actual third-party Pico.css library (avoiding a network fetch of
+   vendored third-party source during this change) — a small, self-authored
+   stylesheet providing the same "readable, unstyled body" baseline described
+   in docs/architecture/technical-baseline.md decision #9, kept file-named
+   `pico.min.css` for parity with the design's module layout. Deliberately
+   restricted to background-color/border/basic-font constructs, since
+   xhtml2pdf's supported CSS subset (see Phase 3 spike-test) cannot render
+   flexbox/grid/custom-property-based layout anyway. */
+body {
+  font-family: Helvetica, Arial, sans-serif;
+  color: #1a1a1a;
+  background-color: #ffffff;
+  margin: 0;
+  padding: 1rem;
+}
+main.container {
+  max-width: 60rem;
+  margin: 0 auto;
+}
+h1, h2 {
+  color: #1a1a1a;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 1.5rem;
+}
+th, td {
+  border: 1px solid #cccccc;
+  padding: 0.5rem;
+  text-align: left;
+}
+th {
+  background-color: #f0f0f0;
+}

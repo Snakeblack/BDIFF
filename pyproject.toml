@@ -11,11 +11,14 @@ license = { text = "MIT" }
 dependencies = [
     "PyYAML>=6.0",
     "pyodbc>=5.0",
+    "Jinja2>=3.1",
+    "xhtml2pdf>=0.2.13",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
+    "pytest-cov>=5.0",
 ]
 
 [tool.setuptools.packages.find]

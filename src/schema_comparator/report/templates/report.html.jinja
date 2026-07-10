@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Schema Drift Report</title>
+  <style>
+{{ pico_css_inline | safe }}
+    .diff-missing-table  { background-color: #fde2e1; }
+    .diff-missing-column { background-color: #fff3cd; }
+    .diff-column-mismatch { background-color: #d9edf7; }
+    td.cell-missing       { text-align: center; color: #999999; }
+    .no-drift              { border: 1px solid #2e7d32; padding: 1rem; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>Schema Drift Report</h1>
+    <p>Compared profiles: {{ compared_profiles | join(", ") }}</p>
+
+    {% if not has_findings %}
+      <p class="no-drift">No drift detected across all compared profiles.</p>
+    {% else %}
+      {% for group in groups %}
+        <h2>{{ group.schema_name }}.{{ group.table_name }}</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Column</th>
+              {% for profile in compared_profiles %}<th>{{ profile }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in group.rows %}
+              <tr class="diff-{{ row.diff_type | lower_kebab }}">
+                <td>{{ row.column_name or "(table)" }}</td>
+                {% for profile in compared_profiles %}
+                  {% set cell = row.cells[profile] %}
+                  <td class="{{ 'cell-missing' if cell and cell.kind == 'missing' else '' }}">
+                    {{ cell.text if cell else "" }}
+                  </td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endfor %}
+    {% endif %}
+  </main>
+</body>
+</html>
