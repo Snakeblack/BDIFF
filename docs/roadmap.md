@@ -21,6 +21,9 @@ drift.
 
 - [ ] Likely-rename heuristic detection (name similarity / shape match)
 - [ ] PK/FK/index best-effort comparison
+- [x] Interactive TUI (`textual`), opt-in via `--tui` flag, alongside the
+      existing always-on HTML/PDF/console outputs (archived:
+      `openspec/changes/archive/2026-07-10-interactive-tui/`)
 
 ## Milestone 3 (v2) — Spreadsheet export
 
