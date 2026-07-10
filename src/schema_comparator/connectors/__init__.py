@@ -31,7 +31,12 @@ def connect(
     and propagate unchanged to the caller; translation into domain errors
     is `discovery`'s responsibility, not this connection boundary's.
     """
-    conn = connect_fn(profile.connection_string, timeout=timeout_seconds)
+    # pyodbc.connect's `timeout` kwarg is passed straight through to the
+    # underlying C API, which requires a plain int (a float here raises
+    # `TypeError: 'float' object cannot be interpreted as an integer`).
+    # `connection.timeout` has no such restriction, so it keeps the
+    # original (possibly fractional) value.
+    conn = connect_fn(profile.connection_string, timeout=int(timeout_seconds))
     conn.timeout = timeout_seconds
     try:
         yield conn
