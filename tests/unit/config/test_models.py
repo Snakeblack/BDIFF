@@ -60,3 +60,9 @@ def test_repr_redacts_windows_auth_connection_string() -> None:
     rendered = repr(profile)
     assert "<redacted>" in rendered
     assert "Trusted_Connection" not in rendered
+
+
+def test_docstring_reflects_load_time_translation_contract() -> None:
+    docstring = ConnectionProfile.__doc__ or ""
+    assert "NEVER parsed into" not in docstring
+    assert "translat" in docstring.lower()

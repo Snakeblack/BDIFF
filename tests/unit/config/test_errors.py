@@ -39,3 +39,16 @@ def test_empty_connection_string_factory_contains_given_name() -> None:
     exc = ProfileValidationError.empty_connection_string("X")
     assert isinstance(exc, ProfileValidationError)
     assert "X" in str(exc)
+
+
+def test_unrecognized_connection_string_format_factory_contains_only_name() -> None:
+    exc = ProfileValidationError.unrecognized_connection_string_format("x")
+    assert isinstance(exc, ProfileValidationError)
+    message = str(exc)
+    assert "x" in message
+    # The factory accepts only `name` - no raw/token/value parameter exists,
+    # so there is nothing to accidentally interpolate into the message.
+    import inspect
+
+    signature = inspect.signature(ProfileValidationError.unrecognized_connection_string_format)
+    assert list(signature.parameters) == ["name"]

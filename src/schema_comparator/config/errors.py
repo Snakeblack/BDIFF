@@ -69,3 +69,13 @@ class ProfileValidationError(ConfigError):
             f"Connection profile '{name}' has an empty or blank connection "
             "string. Every profile must have a non-empty connection string."
         )
+
+    @classmethod
+    def unrecognized_connection_string_format(cls, name: str) -> "ProfileValidationError":
+        return cls(
+            f"Connection profile '{name}' has a connection string in an "
+            "unrecognized or malformed format (no recognized ODBC/ADO.NET "
+            "keyword found, or an unterminated '{' brace group). Check the "
+            "profile's connection string against config.example.yaml for "
+            "the expected format."
+        )

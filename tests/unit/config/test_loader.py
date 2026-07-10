@@ -319,3 +319,49 @@ def test_load_profiles_does_not_import_pyodbc_or_open_sockets(
 
     assert len(profiles) == 1
     assert "pyodbc" not in sys.modules
+
+
+# --- Phase 7: connection-string translation integration ---------------------
+
+
+def test_ado_net_connection_string_is_translated_to_odbc_form(tmp_path: pathlib.Path) -> None:
+    content = (
+        "databases:\n"
+        '  poliza-service: "Data Source=srv1;Initial Catalog=PolizaDB;User Id=u;Password=p;"\n'
+    )
+    config_path = _write_yaml(tmp_path, content)
+
+    profiles = load_profiles(config_path)
+
+    assert len(profiles) == 1
+    connection_string = profiles[0].connection_string
+    assert "Server=srv1" in connection_string
+    assert "Database=PolizaDB" in connection_string
+    assert "UID=u" in connection_string
+    assert "PWD=p" in connection_string
+    assert "Driver=" in connection_string
+    assert "Data Source=" not in connection_string
+
+
+def test_unrecognized_connection_string_raises_profile_validation_error(
+    tmp_path: pathlib.Path,
+) -> None:
+    content = 'databases:\n  poliza-service: "justsomeopaquevalue"\n'
+    config_path = _write_yaml(tmp_path, content)
+
+    with pytest.raises(ProfileValidationError) as exc_info:
+        load_profiles(config_path)
+
+    assert "poliza-service" in str(exc_info.value)
+
+
+def test_no_leakage_on_unrecognized_connection_string_format(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    content = f'databases:\n  poliza-service: "{_SENTINEL_USER}{_SENTINEL_PASS}"\n'
+    config_path = _write_yaml(tmp_path, content)
+
+    with pytest.raises(ProfileValidationError) as exc_info:
+        load_profiles(config_path)
+
+    _assert_no_sentinel_leakage(exc_info.value, caplog)

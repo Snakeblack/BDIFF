@@ -7,11 +7,15 @@ from dataclasses import dataclass
 class ConnectionProfile:
     """A named SQL Server connection profile.
 
-    `connection_string` is an opaque ODBC string passed verbatim to a future
-    pyodbc connector; it is NEVER parsed into host/user/password/auth
-    fields, so both SQL authentication (`UID=...;PWD=...;`) and Windows
-    integrated authentication (`Trusted_Connection=yes;`) are supported
-    without this model branching on auth mode.
+    `connection_string` is an ODBC connection string passed verbatim to a
+    future pyodbc connector. Any ADO.NET/`SqlClient`-style keyword present
+    in the original YAML value is translated to its ODBC equivalent once,
+    at config-load time (see `config/connection_string.py`), before this
+    object is constructed. This model still never decomposes the string
+    into separate host/user/password/auth-mode fields, so both SQL
+    authentication (`UID=...;PWD=...;`) and Windows integrated
+    authentication (`Trusted_Connection=yes;`) are supported without this
+    model branching on auth mode.
     """
 
     name: str

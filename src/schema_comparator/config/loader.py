@@ -10,6 +10,7 @@ import os
 
 import yaml
 
+from schema_comparator.config.connection_string import translate
 from schema_comparator.config.errors import (
     ConfigFileNotFoundError,
     ConfigParseError,
@@ -82,6 +83,8 @@ def load_profiles(config_path: str | os.PathLike[str]) -> list[ConnectionProfile
 
         if not connection_string:
             raise ProfileValidationError.empty_connection_string(name)
+
+        connection_string = translate(connection_string, name=name)
 
         profiles.append(ConnectionProfile(name=name, connection_string=connection_string))
     return profiles
