@@ -87,7 +87,7 @@ on import since `errors.py` does not exist yet.
 
 ## Phase 2 — Data model (`models.py`)
 
-- [ ] 2.1 (RED) Write `tests/unit/config/test_models.py`:
+- [x] 2.1 (RED) Write `tests/unit/config/test_models.py`:
       - `ConnectionProfile(name=..., connection_string=...)` exposes exactly
         `name` and `connection_string` (assert via `dataclasses.fields`);
         no extra attributes settable (via `slots=True` -> `AttributeError`
@@ -99,10 +99,10 @@ on import since `errors.py` does not exist yet.
       - `repr(profile)` renders `<redacted>` in place of the connection
         string and never contains the raw string value, for both a
         SQL-auth and a Windows-auth example.
-- [ ] 2.2 (GREEN) Implement `src/schema_comparator/config/models.py`: the
+- [x] 2.2 (GREEN) Implement `src/schema_comparator/config/models.py`: the
       `ConnectionProfile` frozen, slotted dataclass with the custom
       redacting `__repr__`, per design.md §2.
-- [ ] 2.3 Run `pytest tests/unit/config/test_models.py` and confirm all pass.
+- [x] 2.3 Run `pytest tests/unit/config/test_models.py` and confirm all pass.
 
 ## Phase 3 — Loader: happy path + explicit-path contract
 
