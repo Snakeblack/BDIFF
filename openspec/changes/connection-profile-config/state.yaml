@@ -1,0 +1,75 @@
+change: "connection-profile-config"
+status: "tasks-ready"
+last_updated: 2026-07-10T00:00:00Z
+blocking_questions: []
+approvals:
+  - id: approval-001
+    gate: clarify
+    decision: "Loader v1 is YAML-only (config.local.yaml); no environment-variable credential source/override"
+    source: AskUserQuestion
+    accepted_at: 2026-07-10T00:00:00Z
+    applies_to: connection-profile-config
+  - id: approval-002
+    gate: clarify
+    decision: "Duplicate profile name detection is case-insensitive"
+    source: AskUserQuestion
+    accepted_at: 2026-07-10T00:00:00Z
+    applies_to: connection-profile-config
+  - id: approval-003
+    gate: clarify
+    decision: "config.local.yaml path is resolved via an explicit parameter passed by the caller; no implicit cwd/repo-root resolution"
+    source: AskUserQuestion
+    accepted_at: 2026-07-10T00:00:00Z
+    applies_to: connection-profile-config
+  - id: approval-004
+    gate: clarify
+    decision: "Leading/trailing whitespace is trimmed from both name and connection_string on load"
+    source: AskUserQuestion
+    accepted_at: 2026-07-10T00:00:00Z
+    applies_to: connection-profile-config
+phases:
+  proposal:
+    status: "done"
+    artifact: "openspec/changes/connection-profile-config/proposal.md"
+    summary: "Normal-route proposal: connection-profile config module (ConnectionProfile model, config.local.yaml loader, fail-fast validation, config.example.yaml template). Read-only loading only -- no pyodbc connectivity, no TUI persistence/write path, no discovery/compare/report logic. Delivery: exception-ok (no PR splitting; direct-to-main commits pre-approved for this change, size:exception)."
+    key_decisions:
+      - "route: normal (standard SDD route; no routing table in openspec/config.yaml -> graceful-degradation legacy guard sequence applied)"
+      - "Scope boundary: profile loading/validation only, not connectivity/discovery/compare/report (separate later roadmap changes)"
+      - "Auth support (SQL + Windows integrated) achieved by passthrough of the raw ODBC connection string per technical-baseline.md decision #2 -- no field-by-field auth branching in this module"
+      - "No-hardcoded-credentials guaranteed structurally (git-ignored config.local.yaml + committed config.example.yaml placeholder) plus an explicit no-log/no-echo guardrail on connection strings"
+      - "Write/persist path (TUI add/edit/delete) explicitly deferred to the future TUI capability change; this change is read-only loading"
+  spec:
+    status: "done"
+    artifact: "openspec/changes/connection-profile-config/specs/connection-profile-config/spec.md"
+    summary: "6 ADDED requirements with Given/When/Then scenarios: ConnectionProfile data model, YAML profile loading (explicit path param), no-hardcoded-credentials guardrail, committed config.example.yaml template, fail-fast validation without secret leakage, and an explicit out-of-scope guardrail (no pyodbc/discovery/compare/report)."
+    key_decisions:
+      - "touched_baseline_domains: [] (first version of this capability, no prior baseline spec to fingerprint)"
+  clarify:
+    status: "done"
+    summary: "4 material ambiguities resolved via AskUserQuestion and encoded into the spec: YAML-only credential source (no env vars), case-insensitive duplicate-name detection, explicit-parameter config path resolution, and trim of name/connection_string whitespace on load."
+  design:
+    status: "done"
+    artifact: "openspec/changes/connection-profile-config/design.md"
+    summary: "Technical design for the config module: file layout (models.py/errors.py/loader.py + config.example.yaml at repo root), ConnectionProfile as a frozen slotted dataclass with a redacting __repr__ (pydantic rejected to avoid a new dep and its value-echoing error/repr defaults that fight the secret guardrail), load_profiles(config_path) with a required no-default explicit path param, PyYAML safe_load plus a duplicate-key-detecting SafeLoader subclass, a ConfigError exception hierarchy with secret-safe fail-fast messages, trim-on-load, a fail-fast flowchart, both-auth-mode example template, and a per-scenario pytest unit-test matrix with a parametrized secret-leakage guardrail test."
+    key_decisions:
+      - "Model: stdlib frozen @dataclass(slots=True) over pydantic -- avoids a new runtime dependency and pydantic's default of echoing field values in errors/repr, which would undermine the no-secret-leakage guardrail"
+      - "Redacting ConnectionProfile.__repr__ (<redacted>) as defense-in-depth against accidental logging of the raw connection string"
+      - "load_profiles(config_path) required positional param, no default, no implicit cwd/repo-root/env resolution -- omission raises TypeError per clarify #3"
+      - "yaml.safe_load hardened with a duplicate-key-detecting SafeLoader subclass to catch exact-duplicate YAML keys PyYAML would otherwise silently collapse; case-insensitive dup names caught in the validation pass after trim+casefold"
+      - "ConfigError base + ConfigFileNotFoundError/ConfigParseError/ProfileValidationError; messages built only in constructors, never embedding connection-string content or raw parser tracebacks"
+      - "Add exactly one runtime dep (PyYAML>=6.0) to pyproject; no pyodbc/textual introduced here"
+      - "No separate ADR file: all decisions are module-local and recorded inline in design.md sec.9 with rationale, per rules.design"
+    notes:
+      - "Referenced skill files (skills/sdd-design/SKILL.md, skills/_shared/sdd-phase-common.md) are absent from the repo; proceeded via graceful-degradation using openspec/config.yaml rules.design + technical-baseline.md, consistent with prior phases."
+  tasks:
+    status: "done"
+    artifact: "openspec/changes/connection-profile-config/tasks.md"
+    summary: "8 phases (0 dependency setup, 1 errors, 2 model, 3 loader happy-path, 4 loader fail-fast file/YAML, 5 loader trim/duplicate/validation, 6 cross-cutting guardrails + example template + public API, 7 full-suite verification), ~14 work units. strict_tdd flag remains false per openspec/config.yaml, but tasks are ordered RED (write failing pytest test) -> GREEN (minimal implementation) per phase since pytest is now configured and verified (scaffold-project, PASS). Review-workload forecast: Decision needed before apply: No; size:exception delivery (single change, no PR split) per proposal.md's pre-approved size:exception; 400-line budget risk: Low (largest single file ~test_loader.py at ~200-250 lines; no production file exceeds ~130 lines)."
+    key_decisions:
+      - "RED->GREEN ordering applied per phase even though strict_tdd flag itself is not flipped (graceful adoption of newly-available pytest per user instruction)"
+      - "errors.py and models.py (pure logic, no I/O) built and tested before loader.py, matching design.md's dependency rationale"
+      - "loader.py split into 3 sub-phases (happy path -> fail-fast file/YAML -> trim/duplicate/validation) rather than one large task, keeping each task completable in one session"
+      - "secret-leakage guardrail test and source-inspection no-fallback-credentials test placed in Phase 6 as cross-cutting checks run against the already-implemented Phases 1-5 code"
+      - "No PR-splitting/chaining recommended: proposal.md already carries a size:exception delivery approval, and the module's actual footprint (5 small production files + 3 test files) stays under typical split thresholds"
+    notes:
+      - "Skill files skills/sdd-tasks/SKILL.md and skills/_shared/sdd-phase-common.md were not found in the repo at time of writing (Glob skills/**/*.md returned no results); proceeded via graceful-degradation using openspec/config.yaml rules.tasks (group by phase, hierarchical numbering, one-session-sized tasks), consistent with prior phases' documented approach."

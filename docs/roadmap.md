@@ -42,9 +42,9 @@ drift.
 
 ## Status
 
-No code exists yet. This roadmap was created during `sdd-foundation`
-alongside the product and architecture baseline. The first SDD change
-should be a scaffold change (e.g. `scaffold-project`) that sets up
-`pyproject.toml`, the `src/schema_comparator/` package skeleton, and
-pytest configuration, followed by the Milestone 1 capabilities above as
-their own SDD changes.
+`scaffold-project` is done (archived: `openspec/changes/archive/2026-07-10-scaffold-project/`).
+`pyproject.toml`, the `src/schema_comparator/` package skeleton, and pytest
+configuration are in place on `feat/scaffold-project`, verified PASS.
+
+Next up: the first Milestone 1 capability, **connection profile config**
+(multi-database, no hardcoded credentials), as its own SDD change.
