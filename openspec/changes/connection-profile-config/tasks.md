@@ -173,23 +173,23 @@ on import since `errors.py` does not exist yet.
 
 ## Phase 6 — Cross-cutting guardrails, example template, public API, docs
 
-- [ ] 6.1 (RED) Add the secret-leakage guardrail test in
+- [x] 6.1 (RED) Add the secret-leakage guardrail test in
       `test_loader.py`: a reusable parametrized helper drives every failure
       mode (missing file, malformed YAML, empty name, duplicate name, empty
       connection string) against a config containing sentinel secrets
       (`UID=SECRET_USER;PWD=SECRET_PASS;Trusted_Connection=yes;`) and
       asserts `str(exc)`/`repr(exc)` and `caplog` output never contain the
       sentinel substrings.
-- [ ] 6.2 (RED) Add a source-inspection test: read
+- [x] 6.2 (RED) Add a source-inspection test: read
       `src/schema_comparator/config/loader.py` (and `models.py`,
       `errors.py`) source text and assert no `UID=`, `PWD=`, or hardcoded
       `Driver=` literal appears outside of docstrings/comments explaining
       the guardrail (no fallback credentials).
-- [ ] 6.3 (RED) Add a test asserting `.gitignore` contains an entry matching
+- [x] 6.3 (RED) Add a test asserting `.gitignore` contains an entry matching
       `config.local.yaml` (already present at line 4 — this test should
       pass immediately with no production-code change; only add the entry
       if the test fails).
-- [ ] 6.4 (RED) Write `tests/unit/config/test_example_config.py`:
+- [x] 6.4 (RED) Write `tests/unit/config/test_example_config.py`:
       - `config.example.yaml` parses as valid YAML with a `databases:`
         mapping.
       - every value contains an obvious placeholder marker (e.g.
@@ -197,17 +197,17 @@ on import since `errors.py` does not exist yet.
         "looks like a real host/credential" heuristic.
       - at least one entry contains `UID=...;PWD=` and at least one other
         entry contains `Trusted_Connection=yes;` (both auth modes present).
-- [ ] 6.5 (GREEN) Write `config.example.yaml` at the repo root per
+- [x] 6.5 (GREEN) Write `config.example.yaml` at the repo root per
       design.md §7 (both auth-mode placeholder entries, comment header
       pointing to `config.local.yaml`).
-- [ ] 6.6 (GREEN) Confirm 6.1-6.4 tests pass against the Phase 1-5
+- [x] 6.6 (GREEN) Confirm 6.1-6.4 tests pass against the Phase 1-5
       implementation; fix any leakage found by 6.1/6.2 in `loader.py` /
       `errors.py` messages before proceeding.
-- [ ] 6.7 (GREEN) Implement `src/schema_comparator/config/__init__.py`
+- [x] 6.7 (GREEN) Implement `src/schema_comparator/config/__init__.py`
       re-exporting `ConnectionProfile`, `load_profiles`, `ConfigError`,
       `ConfigFileNotFoundError`, `ConfigParseError`, `ProfileValidationError`
       per design.md §1 public API, with `__all__` set explicitly.
-- [ ] 6.8 (GREEN) Add a "no network / no pyodbc" test: with a valid
+- [x] 6.8 (GREEN) Add a "no network / no pyodbc" test: with a valid
       `tmp_path` config, load profiles and assert `pyodbc` is not present in
       `sys.modules` after the call, and that no socket-level call occurs
       (e.g. via monkeypatching `socket.socket` to raise if invoked).

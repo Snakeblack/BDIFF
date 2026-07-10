@@ -1,0 +1,13 @@
+# config.example.yaml
+#
+# Copy this file to `config.local.yaml` (git-ignored) and replace the
+# placeholder values with your real connection strings. NEVER commit
+# `config.local.yaml`. Each key under `databases:` is a human-readable
+# profile name used in diff reports; each value is a raw ODBC connection
+# string passed as-is to the connector.
+databases:
+  # SQL Server authentication (username + password)
+  example-sql-auth: "Driver={ODBC Driver 18 for SQL Server};Server=your-server;Database=YourDb;UID=your-user;PWD=your-password;TrustServerCertificate=yes;"
+
+  # Windows integrated authentication (no username/password)
+  example-windows-auth: "Driver={ODBC Driver 18 for SQL Server};Server=your-server;Database=YourOtherDb;Trusted_Connection=yes;"

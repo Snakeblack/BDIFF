@@ -7,7 +7,10 @@ Grows across phases 3-6 of the connection-profile-config change:
 - Phase 6: cross-cutting guardrails (secret leakage, no-fallback, network)
 """
 
+import io
 import pathlib
+import sys
+import tokenize
 
 import pytest
 
@@ -187,3 +190,132 @@ def test_blank_connection_string_raises_profile_validation_error(tmp_path: pathl
         load_profiles(config_path)
 
     assert "poliza-service" in str(exc_info.value)
+
+
+# --- Phase 6: cross-cutting guardrails ---------------------------------------
+
+_SENTINEL_USER = "SECRET_USER"
+_SENTINEL_PASS = "SECRET_PASS"
+_SENTINEL_CONN = f"Driver=X;UID={_SENTINEL_USER};PWD={_SENTINEL_PASS};Trusted_Connection=yes;"
+
+
+def _assert_no_sentinel_leakage(exc: Exception, caplog: pytest.LogCaptureFixture) -> None:
+    for text in (str(exc), repr(exc)):
+        assert _SENTINEL_USER not in text
+        assert _SENTINEL_PASS not in text
+    log_text = caplog.text
+    assert _SENTINEL_USER not in log_text
+    assert _SENTINEL_PASS not in log_text
+
+
+def test_no_leakage_on_missing_file(tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture) -> None:
+    missing_path = tmp_path / "does-not-exist.yaml"
+    with pytest.raises(ConfigFileNotFoundError) as exc_info:
+        load_profiles(missing_path)
+    _assert_no_sentinel_leakage(exc_info.value, caplog)
+
+
+def test_no_leakage_on_malformed_yaml(tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture) -> None:
+    content = f'databases: [unterminated "{_SENTINEL_CONN}"'
+    config_path = _write_yaml(tmp_path, content)
+    with pytest.raises(ConfigParseError) as exc_info:
+        load_profiles(config_path)
+    _assert_no_sentinel_leakage(exc_info.value, caplog)
+
+
+def test_no_leakage_on_empty_name(tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture) -> None:
+    content = f'databases:\n  "   ": "{_SENTINEL_CONN}"\n'
+    config_path = _write_yaml(tmp_path, content)
+    with pytest.raises(ProfileValidationError) as exc_info:
+        load_profiles(config_path)
+    _assert_no_sentinel_leakage(exc_info.value, caplog)
+
+
+def test_no_leakage_on_duplicate_name(tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture) -> None:
+    content = (
+        "databases:\n"
+        f'  Poliza-Service: "{_SENTINEL_CONN}"\n'
+        f'  poliza-service: "{_SENTINEL_CONN}"\n'
+    )
+    config_path = _write_yaml(tmp_path, content)
+    with pytest.raises(ProfileValidationError) as exc_info:
+        load_profiles(config_path)
+    _assert_no_sentinel_leakage(exc_info.value, caplog)
+
+
+def test_no_leakage_on_empty_connection_string(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    content = 'databases:\n  poliza-service: "   "\n'
+    config_path = _write_yaml(tmp_path, content)
+    with pytest.raises(ProfileValidationError) as exc_info:
+        load_profiles(config_path)
+    _assert_no_sentinel_leakage(exc_info.value, caplog)
+
+
+def test_repr_redacts_sentinel_secret_end_to_end(tmp_path: pathlib.Path) -> None:
+    content = f'databases:\n  poliza-service: "{_SENTINEL_CONN}"\n'
+    config_path = _write_yaml(tmp_path, content)
+    profiles = load_profiles(config_path)
+    rendered = repr(profiles[0])
+    assert _SENTINEL_USER not in rendered
+    assert _SENTINEL_PASS not in rendered
+    assert "<redacted>" in rendered
+
+
+def _strip_comments_and_strings(source: str) -> str:
+    """Return `source` with all comments and string literals blanked out.
+
+    Lets the no-fallback-credentials source-inspection test ignore literals
+    that appear only inside docstrings/comments explaining the guardrail.
+    """
+    out_tokens = []
+    readline = io.StringIO(source).readline
+    for tok in tokenize.generate_tokens(readline):
+        tok_type, tok_string = tok[0], tok[1]
+        if tok_type in (tokenize.COMMENT, tokenize.STRING):
+            out_tokens.append(" ")
+        else:
+            out_tokens.append(tok_string)
+    return " ".join(out_tokens)
+
+
+@pytest.mark.parametrize("module_name", ["loader", "models", "errors"])
+def test_no_hardcoded_credential_literals_outside_comments_or_docstrings(
+    module_name: str,
+) -> None:
+    module = sys.modules.get(f"schema_comparator.config.{module_name}")
+    assert module is not None and module.__file__ is not None
+    source = pathlib.Path(module.__file__).read_text(encoding="utf-8")
+    code_only = _strip_comments_and_strings(source)
+    for forbidden in ("UID=", "PWD=", "Driver="):
+        assert forbidden not in code_only, (
+            f"Found forbidden literal {forbidden!r} in executable code of {module_name}.py "
+            "(fallback-credential guardrail)"
+        )
+
+
+def test_gitignore_ignores_config_local_yaml() -> None:
+    repo_root = pathlib.Path(__file__).resolve().parents[3]
+    gitignore_text = (repo_root / ".gitignore").read_text(encoding="utf-8")
+    assert "config.local.yaml" in gitignore_text
+
+
+def test_load_profiles_does_not_import_pyodbc_or_open_sockets(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import socket
+
+    def _raise_if_socket_opened(*args: object, **kwargs: object) -> None:
+        raise AssertionError("load_profiles must not open a network socket")
+
+    monkeypatch.setattr(socket, "socket", _raise_if_socket_opened)
+    sys.modules.pop("pyodbc", None)
+
+    content = 'databases:\n  poliza-service: "Driver=X;UID=u;PWD=p;"\n'
+    config_path = _write_yaml(tmp_path, content)
+
+    profiles = load_profiles(config_path)
+
+    assert len(profiles) == 1
+    assert "pyodbc" not in sys.modules
