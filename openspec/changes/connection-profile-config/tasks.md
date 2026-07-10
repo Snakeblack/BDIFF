@@ -147,7 +147,7 @@ on import since `errors.py` does not exist yet.
 
 ## Phase 5 — Loader: trim, duplicate-key, and validation pipeline
 
-- [ ] 5.1 (RED) Extend `test_loader.py`:
+- [x] 5.1 (RED) Extend `test_loader.py`:
       - an entry with `"  poliza-service  "` name and
         `"  Driver=...;PWD=y;  "` connection string loads with both
         leading/trailing whitespace trimmed, internal whitespace untouched.
@@ -161,7 +161,7 @@ on import since `errors.py` does not exist yet.
       - a blank/whitespace-only connection string raises
         `ProfileValidationError` (`empty_connection_string`) naming the
         profile, without echoing the empty value.
-- [ ] 5.2 (GREEN) Implement in `loader.py`:
+- [x] 5.2 (GREEN) Implement in `loader.py`:
       - the `_DuplicateKeyLoader` / `_no_duplicate_keys` `SafeLoader`
         subclass (design.md §4) wired into the `yaml.safe_load` call so
         exact-duplicate keys raise before dict collapse.
@@ -169,7 +169,7 @@ on import since `errors.py` does not exist yet.
         connection_string -> blank-name check -> case-insensitive
         seen-name check (casefold) -> blank-connection-string check ->
         append `ConnectionProfile`.
-- [ ] 5.3 Run the Phase 5 subset of `test_loader.py` and confirm all pass.
+- [x] 5.3 Run the Phase 5 subset of `test_loader.py` and confirm all pass.
 
 ## Phase 6 — Cross-cutting guardrails, example template, public API, docs
 

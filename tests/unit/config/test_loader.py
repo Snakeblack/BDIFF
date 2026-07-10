@@ -11,7 +11,11 @@ import pathlib
 
 import pytest
 
-from schema_comparator.config.errors import ConfigFileNotFoundError, ConfigParseError
+from schema_comparator.config.errors import (
+    ConfigFileNotFoundError,
+    ConfigParseError,
+    ProfileValidationError,
+)
 from schema_comparator.config.loader import load_profiles
 from schema_comparator.config.models import ConnectionProfile
 
@@ -123,3 +127,63 @@ def test_databases_not_a_mapping_raises_config_parse_error(tmp_path: pathlib.Pat
 
     with pytest.raises(ConfigParseError):
         load_profiles(config_path)
+
+
+# --- Phase 5: trim, duplicate-key, and validation pipeline -------------------
+
+
+def test_leading_and_trailing_whitespace_is_trimmed(tmp_path: pathlib.Path) -> None:
+    content = 'databases:\n  "  poliza-service  ": "  Driver=X;PWD=y;  "\n'
+    config_path = _write_yaml(tmp_path, content)
+
+    profiles = load_profiles(config_path)
+
+    assert len(profiles) == 1
+    assert profiles[0].name == "poliza-service"
+    assert profiles[0].connection_string == "Driver=X;PWD=y;"
+
+
+def test_exact_duplicate_yaml_key_raises_profile_validation_error(tmp_path: pathlib.Path) -> None:
+    content = (
+        "databases:\n"
+        '  poliza-service: "Driver=X;PWD=first;"\n'
+        '  poliza-service: "Driver=X;PWD=second;"\n'
+    )
+    config_path = _write_yaml(tmp_path, content)
+
+    with pytest.raises(ProfileValidationError):
+        load_profiles(config_path)
+
+
+def test_case_insensitive_duplicate_name_raises_profile_validation_error(
+    tmp_path: pathlib.Path,
+) -> None:
+    content = (
+        "databases:\n"
+        '  Poliza-Service: "Driver=X;PWD=first;"\n'
+        '  poliza-service: "Driver=X;PWD=second;"\n'
+    )
+    config_path = _write_yaml(tmp_path, content)
+
+    with pytest.raises(ProfileValidationError):
+        load_profiles(config_path)
+
+
+def test_blank_name_raises_profile_validation_error(tmp_path: pathlib.Path) -> None:
+    content = 'databases:\n  "   ": "Driver=X;PWD=y;"\n'
+    config_path = _write_yaml(tmp_path, content)
+
+    with pytest.raises(ProfileValidationError) as exc_info:
+        load_profiles(config_path)
+
+    assert "PWD" not in str(exc_info.value)
+
+
+def test_blank_connection_string_raises_profile_validation_error(tmp_path: pathlib.Path) -> None:
+    content = 'databases:\n  poliza-service: "   "\n'
+    config_path = _write_yaml(tmp_path, content)
+
+    with pytest.raises(ProfileValidationError) as exc_info:
+        load_profiles(config_path)
+
+    assert "poliza-service" in str(exc_info.value)

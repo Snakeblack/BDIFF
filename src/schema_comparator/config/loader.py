@@ -1,15 +1,46 @@
 """Load and validate connection profiles from a local YAML config file.
 
-Phase 4 adds fail-fast gates: missing file and malformed/wrong-shape YAML.
-Trim/duplicate/validation are added in Phase 5.
+Fail-fast gates: missing file, malformed/wrong-shape YAML, exact-duplicate
+YAML keys, blank name, case-insensitive duplicate name, blank connection
+string. Leading/trailing whitespace is trimmed from both `name` and
+`connection_string` before validation.
 """
 
 import os
 
 import yaml
 
-from schema_comparator.config.errors import ConfigFileNotFoundError, ConfigParseError
+from schema_comparator.config.errors import (
+    ConfigFileNotFoundError,
+    ConfigParseError,
+    ProfileValidationError,
+)
 from schema_comparator.config.models import ConnectionProfile
+
+
+class _DuplicateKeyLoader(yaml.SafeLoader):
+    """A SafeLoader that raises on exact-duplicate mapping keys.
+
+    Plain `yaml.safe_load` silently keeps the last value when a mapping has
+    two identical keys, which would defeat the spec's "re-declared identical
+    YAML key" duplicate-profile scenario. This subclass raises before the
+    dict collapses the duplicate.
+    """
+
+
+def _no_duplicate_keys(loader: yaml.SafeLoader, node: yaml.Node, deep: bool = False) -> dict:
+    seen: set[object] = set()
+    for key_node, _ in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in seen:
+            raise ProfileValidationError.duplicate_name(str(key))
+        seen.add(key)
+    return yaml.SafeLoader.construct_mapping(loader, node, deep=deep)
+
+
+_DuplicateKeyLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_duplicate_keys
+)
 
 
 def load_profiles(config_path: str | os.PathLike[str]) -> list[ConnectionProfile]:
@@ -25,7 +56,7 @@ def load_profiles(config_path: str | os.PathLike[str]) -> list[ConnectionProfile
 
     with open(config_path, encoding="utf-8") as handle:
         try:
-            document = yaml.safe_load(handle)
+            document = yaml.load(handle, Loader=_DuplicateKeyLoader)
         except yaml.YAMLError as exc:
             # Never embed str(exc): PyYAML error text can echo a snippet of
             # the offending line/connection-string fragment. Chain `from
@@ -36,6 +67,21 @@ def load_profiles(config_path: str | os.PathLike[str]) -> list[ConnectionProfile
         raise ConfigParseError.invalid_shape()
 
     profiles: list[ConnectionProfile] = []
-    for name, connection_string in document["databases"].items():
+    seen_casefolded_names: set[str] = set()
+    for raw_name, raw_connection_string in document["databases"].items():
+        name = str(raw_name).strip()
+        connection_string = str(raw_connection_string).strip()
+
+        if not name:
+            raise ProfileValidationError.empty_name()
+
+        casefolded_name = name.casefold()
+        if casefolded_name in seen_casefolded_names:
+            raise ProfileValidationError.duplicate_name(name)
+        seen_casefolded_names.add(casefolded_name)
+
+        if not connection_string:
+            raise ProfileValidationError.empty_connection_string(name)
+
         profiles.append(ConnectionProfile(name=name, connection_string=connection_string))
     return profiles
