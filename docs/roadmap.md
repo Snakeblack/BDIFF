@@ -11,11 +11,11 @@ drift.
       size/precision/scale, nullable)
 - [x] N-way comparison engine (union-of-objects baseline diff)
 - [x] Missing-table detection
-- [ ] Missing-column detection
-- [ ] Type/size/nullability mismatch detection
-- [ ] HTML report generation
-- [ ] PDF export of the HTML report (`xhtml2pdf`)
-- [ ] Console/TUI summary output
+- [x] Missing-column detection
+- [x] Type/size/nullability mismatch detection
+- [x] HTML report generation
+- [x] PDF export of the HTML report (`xhtml2pdf`)
+- [x] Console/TUI summary output
 
 ## Milestone 2 (v1.1) — Better signal
 
@@ -55,4 +55,22 @@ including missing-table detection as its first functional diff category.
 Missing-column detection and type/size/nullability mismatch detection
 remain separate, not-yet-started roadmap items.
 
-Next up: **missing-column detection**, as its own SDD change.
+The remaining Milestone 1 scope (missing-column detection, type/size/nullability
+mismatch detection, HTML report generation, PDF export, console/TUI summary)
+is split into two SDD changes instead of one, to keep each change reviewable:
+
+- **Change A — `diff-detection-completion`** is done (archived:
+  `openspec/changes/archive/2026-07-10-diff-detection-completion/`).
+  Missing-column detection and type/size/nullability mismatch detection are
+  implemented, verified PASS (2 non-critical warnings, see its verify-report),
+  and merged into the `comparison-engine` baseline spec.
+- **Change B — `reporting-and-output`** is done (archived:
+  `openspec/changes/archive/2026-07-10-reporting-and-output/`). HTML report
+  generation, PDF export (`xhtml2pdf`), and console summary output are
+  implemented, verified PASS (1 cosmetic warning, 1 process suggestion, see
+  its verify-report), with a new `reporting-and-output` baseline spec at
+  `openspec/specs/reporting-and-output/spec.md`.
+
+**Milestone 1 is complete.** All items are implemented and archived. Next up:
+Milestone 2 (`likely-rename heuristic detection`, `PK/FK/index comparison`),
+as its own SDD change(s) — not started yet.
