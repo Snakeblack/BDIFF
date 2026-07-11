@@ -31,12 +31,12 @@ class SchemaComparatorApp(App):
     report generation actions (REQ-interactive-tui-011/012/013)."""
 
     BINDINGS = [
-        Binding("q", "quit", "Quit"),
+        Binding("q,Q", "quit", "Quit"),
         Binding("escape", "quit", "Quit", show=False),
         Binding("slash", "focus_filter", "Filter"),
-        Binding("e", "focus_exclude_editor", "Editar excludes"),
-        Binding("r", "run_comparison", "Re-ejecutar comparación"),
-        Binding("g", "generate_reports", "Generar reportes"),
+        Binding("e,E", "focus_exclude_editor", "Editar excludes"),
+        Binding("r,R", "run_comparison", "Re-ejecutar comparación"),
+        Binding("g,G", "generate_reports", "Generar reportes"),
     ]
 
     filter_text: reactive[str] = reactive("")
