@@ -1,0 +1,58 @@
+change: "cli-distribution"
+status: "ready-for-archive"
+last_updated: 2026-07-11T00:00:00Z
+blocking_questions: []
+approvals:
+  - id: approval-cli-distribution-001
+    gate: process
+    decision: "Seguir el flujo SDD completo (propose -> spec -> design -> tasks -> apply), con TDD estricto donde aplique."
+    source: vscode/askQuestions
+    accepted_at: 2026-07-11T00:00:00Z
+    applies_to:
+      - cli-distribution
+  - id: approval-cli-distribution-002
+    gate: zero-venv-strategy
+    decision: "Launcher que auto-crea el venv (script `run.py` en la raiz), no `uv run`/`pipx run` como mecanismo primario."
+    source: vscode/askQuestions
+    accepted_at: 2026-07-11T00:00:00Z
+    applies_to:
+      - cli-distribution
+assumptions: []
+phases:
+  proposal:
+    status: "done"
+    artifact: "openspec/changes/cli-distribution/proposal.md"
+    summary: "New cli-distribution capability: stdlib-only run.py launcher at repo root, auto-provisions .venv (venv.create + pip install -e .) on first/missing/broken venv, idempotent via a completion marker, relaunches the CLI via subprocess forwarding args/exit code. Purely additive; no existing capability modified."
+    key_decisions:
+      - "route: normal (standard SDD route; no routing table in openspec/config.yaml -> graceful-degradation legacy guard sequence applied)"
+      - "run.py at repo root, stdlib-only (Decision 1)"
+      - "Idempotency via completion marker file, not repeated installs (Decision 2)"
+      - "Fail loudly on provisioning failure, no partial ready state (Decision 3)"
+      - "Relaunch via subprocess.run, not os.exec* (Decision 4)"
+      - "Pure-function/orchestration testability split (Decision 5)"
+      - "Out of scope: console-scripts entry point, uv/pipx as primary, dependency-drift detection, frozen binary, OS-specific launchers"
+  spec:
+    status: "done"
+    artifact: "openspec/changes/cli-distribution/specs/cli-distribution/spec.md"
+    summary: "New capability spec with 5 MUST requirements (REQ-cli-distribution-001..005) covering first-run provisioning, idempotent skip, self-heal, argument/exit-code forwarding, and clean failure handling."
+  clarify:
+    status: "skipped"
+    reason: "Small/bounded packaging change with no residual ambiguity flagged by sdd-spec; proposal decisions (1-5) already resolved the open design questions."
+  design:
+    status: "done"
+    artifact: "openspec/changes/cli-distribution/design.md"
+    summary: "File layout (run.py, __main__.py, 2 new test files), pure helper functions (path resolution, readiness check, argv builders), main() orchestration (_provision/_run_checked), and a 3-tier testing strategy (pure-function unit tests, mocked-subprocess orchestration tests, real-venv integration tests)."
+  tasks:
+    status: "done"
+    artifact: "openspec/changes/cli-distribution/tasks.md"
+    summary: "6 phases, ~24 discrete RED/GREEN tasks. Review workload: ~350-500 changed lines, Medium 400-line-budget risk, single PR, no chaining needed, no apply-time delivery decision required."
+  apply:
+    status: "done"
+    artifact: "openspec/changes/cli-distribution/apply-progress.md"
+    summary: "6 phases implemented via strict RED-GREEN TDD: run.py (pure helpers + orchestration), __main__.py, unit tests (13 passed), real-venv integration tests (3 passed, ~34s), README Quick start section. Full suite 276 passed, 1 skipped, 99% coverage; run.py alone 98%."
+  verify:
+    status: "done"
+    result: "PASS"
+    summary: "All 5 MUST requirements (REQ-cli-distribution-001..005) verified against implementation and tests: first-run provisioning, idempotent skip, self-heal after venv deletion, unmodified argument/exit-code forwarding, fail-loud provisioning failure with no partial ready marker. No CRITICAL/WARNING findings."
+  archive:
+    status: "pending"
