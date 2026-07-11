@@ -4,7 +4,7 @@ Each widget calls into `formatting.py` to build its content but owns no
 comparison-specific business logic itself.
 """
 
-from textual.widgets import Static, Tree
+from textual.widgets import Input, RichLog, Static, Tree
 
 from schema_comparator.compare.models import DiffEntry
 from schema_comparator.tui.formatting import (
@@ -80,3 +80,23 @@ class FindingsTree(Tree):
             for entry in group.entries:
                 if entry_matches(entry, filter_text):
                     group_node.add_leaf(leaf_label(entry), data=entry)
+
+
+class StatusLog(RichLog):
+    """Append-only status/progress panel for run-comparison and
+    generate-reports outcomes. Never receives raw stdout; only the
+    explicit messages `app.py`'s worker methods write to it."""
+
+    def info(self, message: str) -> None:
+        self.write(message)
+
+    def error(self, message: str) -> None:
+        self.write(f"[red]{message}[/red]")
+
+
+class ExcludeEditor(Input):
+    """Input pre-seeded with the current exclude-pattern list, space-
+    separated, matching `--exclude-tables`'s existing CLI syntax."""
+
+    def __init__(self, initial_patterns: list[str], **kwargs) -> None:
+        super().__init__(value=" ".join(initial_patterns), **kwargs)

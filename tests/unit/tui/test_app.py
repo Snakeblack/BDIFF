@@ -1,12 +1,28 @@
 """Pilot-driven interaction tests for SchemaComparatorApp: the async
 findings-browser TUI, exercised headless via Textual's `run_test()`."""
 
-import pytest
-from report.conftest import comparison_result_empty, comparison_result_with_findings
+import io
 from unittest.mock import patch
 
+import pytest
+from report.conftest import comparison_result_empty, comparison_result_with_findings
+
+from schema_comparator.config.models import ConnectionProfile
 from schema_comparator.tui.app import SchemaComparatorApp, run_tui
-from schema_comparator.tui.widgets import DetailPanel, FindingsTree, SummaryHeader
+from schema_comparator.tui.widgets import (
+    DetailPanel,
+    ExcludeEditor,
+    FindingsTree,
+    StatusLog,
+    SummaryHeader,
+)
+
+
+def _profiles() -> list[ConnectionProfile]:
+    return [
+        ConnectionProfile(name="a", connection_string="DSN=a"),
+        ConnectionProfile(name="b", connection_string="DSN=b"),
+    ]
 
 
 @pytest.mark.asyncio
@@ -157,3 +173,188 @@ def test_run_tui_catches_app_exception_and_reports_to_stderr(capsys) -> None:
 
     captured = capsys.readouterr()
     assert "[ERROR] Falló la interfaz interactiva" in captured.err
+
+
+def test_app_accepts_profiles_and_exclude_patterns_constructor_args() -> None:
+    app = SchemaComparatorApp(
+        comparison_result_with_findings(),
+        profiles=_profiles(),
+        exclude_patterns=["LOG"],
+    )
+
+    assert app._profiles == _profiles()
+    assert app._exclude_patterns == ["LOG"]
+
+
+@pytest.mark.asyncio
+async def test_pressing_e_focuses_exclude_editor() -> None:
+    app = SchemaComparatorApp(comparison_result_with_findings())
+
+    async with app.run_test() as pilot:
+        tree = app.query_one(FindingsTree)
+        tree.focus()
+        await pilot.pause()
+        await pilot.press("e")
+        await pilot.pause()
+        editor = app.query_one(ExcludeEditor)
+
+        assert app.focused is editor
+
+
+@pytest.mark.asyncio
+async def test_submitting_exclude_editor_updates_patterns_and_triggers_run() -> None:
+    new_result = comparison_result_empty()
+    calls = []
+
+    def fake_run_comparison(profiles, exclude_patterns):
+        calls.append(exclude_patterns)
+        return new_result
+
+    app = SchemaComparatorApp(comparison_result_with_findings(), profiles=_profiles())
+
+    with patch(
+        "schema_comparator.tui.app.run_comparison", side_effect=fake_run_comparison
+    ):
+        async with app.run_test() as pilot:
+            editor = app.query_one(ExcludeEditor)
+            editor.focus()
+            await pilot.pause()
+            editor.value = "LOG QRTZ"
+            await pilot.press("enter")
+            await pilot.pause()
+            await app.workers.wait_for_complete()
+
+    assert app._exclude_patterns == ["LOG", "QRTZ"]
+    assert calls == [["LOG", "QRTZ"]]
+
+
+@pytest.mark.asyncio
+async def test_pressing_r_triggers_run_comparison_without_changing_excludes() -> None:
+    new_result = comparison_result_empty()
+    calls = []
+
+    def fake_run_comparison(profiles, exclude_patterns):
+        calls.append((profiles, exclude_patterns))
+        return new_result
+
+    app = SchemaComparatorApp(
+        comparison_result_with_findings(),
+        profiles=_profiles(),
+        exclude_patterns=["LOG"],
+    )
+
+    with patch(
+        "schema_comparator.tui.app.run_comparison", side_effect=fake_run_comparison
+    ):
+        async with app.run_test() as pilot:
+            tree = app.query_one(FindingsTree)
+            tree.focus()
+            await pilot.pause()
+            await pilot.press("r")
+            await pilot.pause()
+            await app.workers.wait_for_complete()
+
+    assert calls == [(_profiles(), ["LOG"])]
+    assert app._exclude_patterns == ["LOG"]
+    assert app._result is new_result
+
+
+@pytest.mark.asyncio
+async def test_run_comparison_failure_leaves_previous_result_and_logs_error() -> None:
+    app = SchemaComparatorApp(comparison_result_with_findings(), profiles=_profiles())
+
+    with patch(
+        "schema_comparator.tui.app.run_comparison",
+        side_effect=RuntimeError("boom"),
+    ):
+        async with app.run_test() as pilot:
+            original_result = app._result
+            original_tree_data = app._tree_data
+            tree = app.query_one(FindingsTree)
+            tree.focus()
+            await pilot.pause()
+            await pilot.press("r")
+            await pilot.pause()
+            await app.workers.wait_for_complete()
+            log = app.query_one(StatusLog)
+
+            assert app._result is original_result
+            assert app._tree_data is original_tree_data
+            assert any(
+                "Falló la comparación: boom" in str(line) for line in log.lines
+            )
+
+
+@pytest.mark.asyncio
+async def test_pressing_g_calls_generate_reports_with_string_io_and_logs_output() -> None:
+    captured = {}
+
+    def fake_generate(result, *, out=None):
+        captured["out"] = out
+        print("Reporte HTML generado: foo.html", file=out)
+
+    app = SchemaComparatorApp(comparison_result_with_findings(), profiles=_profiles())
+
+    with patch(
+        "schema_comparator.tui.app.generate_all_reports", side_effect=fake_generate
+    ):
+        async with app.run_test() as pilot:
+            tree = app.query_one(FindingsTree)
+            tree.focus()
+            await pilot.pause()
+            await pilot.press("g")
+            await pilot.pause()
+            await app.workers.wait_for_complete()
+            log = app.query_one(StatusLog)
+
+            assert isinstance(captured["out"], io.StringIO)
+            assert any(
+                "Reporte HTML generado: foo.html" in str(line) for line in log.lines
+            )
+
+
+@pytest.mark.asyncio
+async def test_generate_reports_single_format_failure_does_not_crash_app() -> None:
+    def fake_generate(result, *, out=None):
+        print("[ERROR] Falló la generación del reporte PDF: boom", file=out)
+
+    app = SchemaComparatorApp(comparison_result_with_findings(), profiles=_profiles())
+
+    with patch(
+        "schema_comparator.tui.app.generate_all_reports", side_effect=fake_generate
+    ):
+        async with app.run_test() as pilot:
+            tree = app.query_one(FindingsTree)
+            tree.focus()
+            await pilot.pause()
+            await pilot.press("g")
+            await pilot.pause()
+            await app.workers.wait_for_complete()
+            log = app.query_one(StatusLog)
+
+            assert app.is_running
+            assert any(
+                "Falló la generación del reporte PDF: boom" in str(line)
+                for line in log.lines
+            )
+
+
+def test_run_tui_forwards_profiles_and_exclude_patterns() -> None:
+    result = comparison_result_with_findings()
+    profiles = _profiles()
+    captured = {}
+
+    class _FakeApp:
+        def __init__(self, result, *, profiles=None, exclude_patterns=None) -> None:
+            captured["result"] = result
+            captured["profiles"] = profiles
+            captured["exclude_patterns"] = exclude_patterns
+
+        def run(self) -> None:
+            pass
+
+    with patch("schema_comparator.tui.app.SchemaComparatorApp", _FakeApp):
+        run_tui(result, profiles=profiles, exclude_patterns=["LOG"])
+
+    assert captured["profiles"] == profiles
+    assert captured["exclude_patterns"] == ["LOG"]

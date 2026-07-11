@@ -1,9 +1,10 @@
 """Command-line entry point: load profiles, extract schemas, compare, report.
 
-Wires `config.loader.load_profiles` -> `discovery.service.extract_schema`
--> `compare.engine.compare_snapshots` -> `report.write.write_reports`. No
-`--format` flag: v1 always generates all four report outputs (HTML, PDF,
-Excel, console/TUI).
+Wires `config.loader.load_profiles` -> `tui.actions.run_comparison`
+(itself `discovery.service.extract_schema` -> `discovery.filters
+.filter_excluded_tables` -> `compare.engine.compare_snapshots`) ->
+`report.write.write_reports`. No `--format` flag: v1 always generates all
+four report outputs (HTML, PDF, Excel, console/TUI).
 """
 
 from __future__ import annotations
@@ -11,12 +12,10 @@ from __future__ import annotations
 import argparse
 import sys
 
-from schema_comparator.compare.engine import compare_snapshots
 from schema_comparator.config.loader import load_profiles
-from schema_comparator.discovery.filters import filter_excluded_tables
-from schema_comparator.discovery.service import extract_schema
 from schema_comparator.report.write import write_reports
 from schema_comparator.tui import run_tui
+from schema_comparator.tui.actions import run_comparison
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -73,12 +72,8 @@ def main(argv: list[str] | None = None) -> None:
     if args.profiles:
         profiles = [p for p in profiles if p.name in args.profiles]
 
-    snapshots = [extract_schema(p) for p in profiles]
-    if args.exclude_tables:
-        snapshots = [
-            filter_excluded_tables(snapshot, args.exclude_tables) for snapshot in snapshots
-        ]
-    result = compare_snapshots(snapshots)
+    exclude_patterns = list(args.exclude_tables or [])
+    result = run_comparison(profiles, exclude_patterns)
 
     render_summary, do_generate = _resolve_summary_renderer_and_generate_reports(args.tui)
     if render_summary is not None:

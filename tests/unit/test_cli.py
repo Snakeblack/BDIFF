@@ -14,21 +14,19 @@ def _profiles():
     ]
 
 
-def test_cli_main_invokes_write_reports_after_compare_snapshots() -> None:
+def test_cli_main_invokes_write_reports_after_run_comparison() -> None:
     fake_result = MagicMock(name="ComparisonResult")
     with (
         patch("schema_comparator.cli.load_profiles", return_value=_profiles()) as m_load,
-        patch("schema_comparator.cli.extract_schema", side_effect=lambda p: p) as m_extract,
         patch(
-            "schema_comparator.cli.compare_snapshots", return_value=fake_result
-        ) as m_compare,
+            "schema_comparator.cli.run_comparison", return_value=fake_result
+        ) as m_run_comparison,
         patch("schema_comparator.cli.write_reports") as m_write,
     ):
         main(["--config", "config.local.yaml"])
 
     m_load.assert_called_once_with("config.local.yaml")
-    assert m_extract.call_count == 2
-    m_compare.assert_called_once()
+    m_run_comparison.assert_called_once_with(_profiles(), [])
     m_write.assert_called_once_with(fake_result, generate_reports=True)
 
 
@@ -36,14 +34,32 @@ def test_cli_main_filters_profiles_when_profiles_flag_given() -> None:
     fake_result = MagicMock(name="ComparisonResult")
     with (
         patch("schema_comparator.cli.load_profiles", return_value=_profiles()),
-        patch("schema_comparator.cli.extract_schema", side_effect=lambda p: p) as m_extract,
-        patch("schema_comparator.cli.compare_snapshots", return_value=fake_result),
+        patch(
+            "schema_comparator.cli.run_comparison", return_value=fake_result
+        ) as m_run_comparison,
         patch("schema_comparator.cli.write_reports"),
     ):
         main(["--config", "config.local.yaml", "--profiles", "a"])
 
-    assert m_extract.call_count == 1
-    assert m_extract.call_args[0][0].name == "a"
+    called_profiles = m_run_comparison.call_args[0][0]
+    assert [p.name for p in called_profiles] == ["a"]
+
+
+def test_main_deduplicates_extract_filter_compare_via_run_comparison() -> None:
+    """main() delegates the extract/filter/compare sequence to
+    tui.actions.run_comparison instead of inlining it, so the CLI and the
+    TUI's re-run action can never diverge (design §2)."""
+    fake_result = MagicMock(name="ComparisonResult")
+    with (
+        patch("schema_comparator.cli.load_profiles", return_value=_profiles()),
+        patch(
+            "schema_comparator.cli.run_comparison", return_value=fake_result
+        ) as m_run_comparison,
+        patch("schema_comparator.cli.write_reports"),
+    ):
+        main(["--config", "config.local.yaml"])
+
+    m_run_comparison.assert_called_once()
 
 
 def test_tui_flag_defaults_to_false() -> None:
@@ -56,8 +72,7 @@ def test_tui_flag_on_tty_passes_run_tui_as_render_summary() -> None:
     fake_result = MagicMock(name="ComparisonResult")
     with (
         patch("schema_comparator.cli.load_profiles", return_value=_profiles()),
-        patch("schema_comparator.cli.extract_schema", side_effect=lambda p: p),
-        patch("schema_comparator.cli.compare_snapshots", return_value=fake_result),
+        patch("schema_comparator.cli.run_comparison", return_value=fake_result),
         patch("schema_comparator.cli.write_reports") as m_write,
         patch("sys.stdout.isatty", return_value=True),
         patch("sys.stdin.isatty", return_value=True),
@@ -73,8 +88,7 @@ def test_tui_flag_on_non_tty_prints_warning_and_uses_default_renderer(capsys) ->
     fake_result = MagicMock(name="ComparisonResult")
     with (
         patch("schema_comparator.cli.load_profiles", return_value=_profiles()),
-        patch("schema_comparator.cli.extract_schema", side_effect=lambda p: p),
-        patch("schema_comparator.cli.compare_snapshots", return_value=fake_result),
+        patch("schema_comparator.cli.run_comparison", return_value=fake_result),
         patch("schema_comparator.cli.write_reports") as m_write,
         patch("sys.stdout.isatty", return_value=False),
         patch("sys.stdin.isatty", return_value=True),
@@ -90,8 +104,7 @@ def test_tui_flag_on_non_tty_exit_code_is_zero() -> None:
     fake_result = MagicMock(name="ComparisonResult")
     with (
         patch("schema_comparator.cli.load_profiles", return_value=_profiles()),
-        patch("schema_comparator.cli.extract_schema", side_effect=lambda p: p),
-        patch("schema_comparator.cli.compare_snapshots", return_value=fake_result),
+        patch("schema_comparator.cli.run_comparison", return_value=fake_result),
         patch("schema_comparator.cli.write_reports"),
         patch("sys.stdout.isatty", return_value=False),
         patch("sys.stdin.isatty", return_value=False),
@@ -105,16 +118,13 @@ def test_exclude_tables_flag_defaults_to_none() -> None:
     assert args.exclude_tables is None
 
 
-def test_exclude_tables_filters_snapshots_before_comparing() -> None:
+def test_exclude_tables_flag_passes_patterns_to_run_comparison() -> None:
     fake_result = MagicMock(name="ComparisonResult")
     with (
         patch("schema_comparator.cli.load_profiles", return_value=_profiles()),
-        patch("schema_comparator.cli.extract_schema", side_effect=lambda p: p),
         patch(
-            "schema_comparator.cli.filter_excluded_tables",
-            side_effect=lambda snapshot, patterns: snapshot,
-        ) as m_filter,
-        patch("schema_comparator.cli.compare_snapshots", return_value=fake_result),
+            "schema_comparator.cli.run_comparison", return_value=fake_result
+        ) as m_run_comparison,
         patch("schema_comparator.cli.write_reports"),
     ):
         main(
@@ -127,31 +137,28 @@ def test_exclude_tables_filters_snapshots_before_comparing() -> None:
             ]
         )
 
-    assert m_filter.call_count == 2
-    for call in m_filter.call_args_list:
-        assert call.args[1] == ["LOG", "QRTZ"]
+    assert m_run_comparison.call_args[0][1] == ["LOG", "QRTZ"]
 
 
-def test_no_exclude_tables_flag_skips_filtering() -> None:
+def test_no_exclude_tables_flag_passes_empty_list_to_run_comparison() -> None:
     fake_result = MagicMock(name="ComparisonResult")
     with (
         patch("schema_comparator.cli.load_profiles", return_value=_profiles()),
-        patch("schema_comparator.cli.extract_schema", side_effect=lambda p: p),
-        patch("schema_comparator.cli.filter_excluded_tables") as m_filter,
-        patch("schema_comparator.cli.compare_snapshots", return_value=fake_result),
+        patch(
+            "schema_comparator.cli.run_comparison", return_value=fake_result
+        ) as m_run_comparison,
         patch("schema_comparator.cli.write_reports"),
     ):
         main(["--config", "config.local.yaml"])
 
-    m_filter.assert_not_called()
+    assert m_run_comparison.call_args[0][1] == []
 
 
 def test_tui_on_tty_calls_write_reports_with_generate_reports_false() -> None:
     fake_result = MagicMock(name="ComparisonResult")
     with (
         patch("schema_comparator.cli.load_profiles", return_value=_profiles()),
-        patch("schema_comparator.cli.extract_schema", side_effect=lambda p: p),
-        patch("schema_comparator.cli.compare_snapshots", return_value=fake_result),
+        patch("schema_comparator.cli.run_comparison", return_value=fake_result),
         patch("schema_comparator.cli.write_reports") as m_write,
         patch("sys.stdout.isatty", return_value=True),
         patch("sys.stdin.isatty", return_value=True),
@@ -165,8 +172,7 @@ def test_tui_on_non_tty_calls_write_reports_with_generate_reports_true() -> None
     fake_result = MagicMock(name="ComparisonResult")
     with (
         patch("schema_comparator.cli.load_profiles", return_value=_profiles()),
-        patch("schema_comparator.cli.extract_schema", side_effect=lambda p: p),
-        patch("schema_comparator.cli.compare_snapshots", return_value=fake_result),
+        patch("schema_comparator.cli.run_comparison", return_value=fake_result),
         patch("schema_comparator.cli.write_reports") as m_write,
         patch("sys.stdout.isatty", return_value=False),
         patch("sys.stdin.isatty", return_value=True),
@@ -180,8 +186,7 @@ def test_no_tui_calls_write_reports_with_generate_reports_true() -> None:
     fake_result = MagicMock(name="ComparisonResult")
     with (
         patch("schema_comparator.cli.load_profiles", return_value=_profiles()),
-        patch("schema_comparator.cli.extract_schema", side_effect=lambda p: p),
-        patch("schema_comparator.cli.compare_snapshots", return_value=fake_result),
+        patch("schema_comparator.cli.run_comparison", return_value=fake_result),
         patch("schema_comparator.cli.write_reports") as m_write,
     ):
         main(["--config", "config.local.yaml"])
