@@ -81,7 +81,7 @@ def test_tui_flag_on_non_tty_prints_warning_and_uses_default_renderer(capsys) ->
 
     m_write.assert_called_once_with(fake_result)
     captured = capsys.readouterr()
-    assert "--tui requires an interactive terminal" in captured.err
+    assert "--tui requiere una terminal interactiva" in captured.err
 
 
 def test_tui_flag_on_non_tty_exit_code_is_zero() -> None:
@@ -95,3 +95,50 @@ def test_tui_flag_on_non_tty_exit_code_is_zero() -> None:
         patch("sys.stdin.isatty", return_value=False),
     ):
         main(["--config", "config.local.yaml", "--tui"])  # must not raise
+
+
+def test_exclude_tables_flag_defaults_to_none() -> None:
+    args = build_arg_parser().parse_args(["--config", "config.local.yaml"])
+
+    assert args.exclude_tables is None
+
+
+def test_exclude_tables_filters_snapshots_before_comparing() -> None:
+    fake_result = MagicMock(name="ComparisonResult")
+    with (
+        patch("schema_comparator.cli.load_profiles", return_value=_profiles()),
+        patch("schema_comparator.cli.extract_schema", side_effect=lambda p: p),
+        patch(
+            "schema_comparator.cli.filter_excluded_tables",
+            side_effect=lambda snapshot, patterns: snapshot,
+        ) as m_filter,
+        patch("schema_comparator.cli.compare_snapshots", return_value=fake_result),
+        patch("schema_comparator.cli.write_reports"),
+    ):
+        main(
+            [
+                "--config",
+                "config.local.yaml",
+                "--exclude-tables",
+                "LOG",
+                "QRTZ",
+            ]
+        )
+
+    assert m_filter.call_count == 2
+    for call in m_filter.call_args_list:
+        assert call.args[1] == ["LOG", "QRTZ"]
+
+
+def test_no_exclude_tables_flag_skips_filtering() -> None:
+    fake_result = MagicMock(name="ComparisonResult")
+    with (
+        patch("schema_comparator.cli.load_profiles", return_value=_profiles()),
+        patch("schema_comparator.cli.extract_schema", side_effect=lambda p: p),
+        patch("schema_comparator.cli.filter_excluded_tables") as m_filter,
+        patch("schema_comparator.cli.compare_snapshots", return_value=fake_result),
+        patch("schema_comparator.cli.write_reports"),
+    ):
+        main(["--config", "config.local.yaml"])
+
+    m_filter.assert_not_called()

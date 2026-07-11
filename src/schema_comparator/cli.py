@@ -2,7 +2,8 @@
 
 Wires `config.loader.load_profiles` -> `discovery.service.extract_schema`
 -> `compare.engine.compare_snapshots` -> `report.write.write_reports`. No
-`--format` flag: v1 always generates all three report outputs.
+`--format` flag: v1 always generates all four report outputs (HTML, PDF,
+Excel, console/TUI).
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ import sys
 
 from schema_comparator.compare.engine import compare_snapshots
 from schema_comparator.config.loader import load_profiles
+from schema_comparator.discovery.filters import filter_excluded_tables
 from schema_comparator.discovery.service import extract_schema
 from schema_comparator.report.write import write_reports
 from schema_comparator.tui import run_tui
@@ -20,18 +22,24 @@ from schema_comparator.tui import run_tui
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="schema-comparator")
     parser.add_argument(
-        "--config", required=True, help="Path to connection profiles YAML"
+        "--config", required=True, help="Ruta al archivo YAML de perfiles de conexión"
     )
     parser.add_argument(
         "--profiles",
         nargs="+",
-        help="Subset of profile names to compare (default: all)",
+        help="Subconjunto de nombres de perfiles a comparar (por defecto: todos)",
     )
     parser.add_argument(
         "--tui",
         action="store_true",
-        help="Launch an interactive findings browser instead of the plain "
-        "console summary (requires an interactive terminal)",
+        help="Inicia un navegador interactivo de hallazgos en lugar del "
+        "resumen de consola simple (requiere una terminal interactiva)",
+    )
+    parser.add_argument(
+        "--exclude-tables",
+        nargs="+",
+        help="Excluye tablas cuyo nombre contenga alguno de estos textos "
+        "(no distingue mayúsculas/minúsculas), p. ej. --exclude-tables LOG QRTZ",
     )
     return parser
 
@@ -46,8 +54,8 @@ def _resolve_summary_renderer(use_tui: bool):
     if sys.stdout.isatty() and sys.stdin.isatty():
         return run_tui
     print(
-        "[WARN] --tui requires an interactive terminal; "
-        "falling back to plain console summary",
+        "[AVISO] --tui requiere una terminal interactiva; "
+        "se usará el resumen de consola simple",
         file=sys.stderr,
     )
     return None
@@ -60,13 +68,17 @@ def main(argv: list[str] | None = None) -> None:
         profiles = [p for p in profiles if p.name in args.profiles]
 
     snapshots = [extract_schema(p) for p in profiles]
+    if args.exclude_tables:
+        snapshots = [
+            filter_excluded_tables(snapshot, args.exclude_tables) for snapshot in snapshots
+        ]
     result = compare_snapshots(snapshots)
 
     render_summary = _resolve_summary_renderer(args.tui)
     if render_summary is not None:
         write_reports(result, render_summary=render_summary)
     else:
-        write_reports(result)  # always all three; no --format flag
+        write_reports(result)  # always all four; no --format flag
 
 
 if __name__ == "__main__":
