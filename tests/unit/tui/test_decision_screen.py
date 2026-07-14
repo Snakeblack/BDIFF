@@ -1,0 +1,319 @@
+"""Tests for DecisionScreen interactive TUI view."""
+
+from pathlib import Path
+import tempfile
+import pytest
+from textual.app import App, ComposeResult
+from textual.widgets import ListView, RadioSet, SelectionList
+
+from schema_comparator.compare.models import (
+    ColumnAttributes,
+    ColumnMismatch,
+    MissingColumn,
+    MissingTable,
+    NamedColumnAttributes,
+)
+from schema_comparator.tui.decision_screen import DecisionScreen
+from schema_comparator.config.models import ConnectionProfile
+
+
+def _sample_entries() -> tuple:
+    attr1 = ColumnAttributes(
+        data_type="varchar",
+        character_maximum_length=100,
+        numeric_precision=None,
+        numeric_scale=None,
+        is_nullable=False,
+    )
+    attr2 = ColumnAttributes(
+        data_type="varchar",
+        character_maximum_length=200,
+        numeric_precision=None,
+        numeric_scale=None,
+        is_nullable=False,
+    )
+    mismatch = ColumnMismatch(
+        schema_name="dbo",
+        table_name="users",
+        column_name="email",
+        values_by_profile=(("profileA", attr1), ("profileB", attr2)),
+    )
+    missing = MissingColumn(
+        schema_name="dbo",
+        table_name="users",
+        column_name="age",
+        missing_from_profile="profileB",
+        present_attributes=(("profileA", attr1),),
+    )
+    missing_tbl = MissingTable(
+        schema_name="dbo",
+        table_name="logs",
+        missing_from_profile="profileB",
+        present_columns=(
+            ("profileA", (
+                NamedColumnAttributes(name="id", attributes=attr1),
+                NamedColumnAttributes(name="message", attributes=attr2),
+            )),
+        ),
+    )
+    return mismatch, missing, missing_tbl
+
+
+def _sample_profiles() -> tuple[ConnectionProfile, ...]:
+    return (
+        ConnectionProfile(name="profileA", connection_string="Database=db_a;"),
+        ConnectionProfile(name="profileB", connection_string="Database=db_b;"),
+    )
+
+
+class DummyApp(App[list[str] | None]):
+    """A minimal test application to host DecisionScreen."""
+
+    def __init__(self, entries, profiles, repo_root) -> None:
+        super().__init__()
+        self.test_entries = entries
+        self.test_profiles = profiles
+        self.test_repo_root = repo_root
+        self.dismissed_result = None
+
+    def on_mount(self) -> None:
+        def handle_dismiss(result) -> None:
+            self.dismissed_result = result
+            self.exit()
+
+        self.push_screen(
+            DecisionScreen(
+                entries=self.test_entries,
+                profiles=self.test_profiles,
+                repo_root=self.test_repo_root,
+            ),
+            callback=handle_dismiss,
+        )
+
+
+@pytest.mark.asyncio
+async def test_decision_screen_lists_all_mismatches_and_missing() -> None:
+    entries = _sample_entries()
+    profiles = _sample_profiles()
+    
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        app = DummyApp(entries, profiles, Path(tmp_dir))
+        
+        async with app.run_test() as pilot:
+            screen = app.screen
+            assert isinstance(screen, DecisionScreen)
+            
+            # Check left panel list populates correctly (grouped by unique table)
+            list_view = screen.query_one("#findings-list", ListView)
+            assert len(list_view.children) == 2
+            
+            from textual.widgets import Label
+            item0_label = str(list_view.children[0].query_one(Label).render())
+            item1_label = str(list_view.children[1].query_one(Label).render())
+            
+            assert "dbo.logs" in item0_label
+            assert "1 hallazgo" in item0_label
+            assert "dbo.users" in item1_label
+            assert "2 hallazgos" in item1_label
+
+
+@pytest.mark.asyncio
+async def test_decision_screen_updates_decision_on_radio_change() -> None:
+    entries = _sample_entries()
+    profiles = _sample_profiles()
+    
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        app = DummyApp(entries, profiles, Path(tmp_dir))
+        
+        async with app.run_test() as pilot:
+            screen = app.screen
+            assert isinstance(screen, DecisionScreen)
+            
+            # Select second item by focusing the list and pressing enter
+            list_view = screen.query_one("#findings-list", ListView)
+            list_view.focus()
+            list_view.index = 1
+            await pilot.press("enter")
+            await pilot.pause()
+            
+            # Verify RadioSets exist in right panel (one for each column)
+            radio_sets = list(screen.query(RadioSet))
+            assert len(radio_sets) == 2
+            assert len(radio_sets[0].children) == 3  # Two attrs options + 1 ignore option
+            
+            # Select "Ignore" (index 2) on the first column card
+            radio_sets[0].children[2].value = True
+            await pilot.pause()
+            
+            # Check first selection list is disabled
+            selection_lists = list(screen.query(SelectionList))
+            assert len(selection_lists) == 2
+            assert selection_lists[0].disabled is True
+            assert selection_lists[1].disabled is False
+            
+            # Verify internal decision state has been set to None for that entry
+            dec = screen.decisions[entries[0]]
+            assert dec[0] is None
+            assert len(dec[1]) == 0
+
+
+@pytest.mark.asyncio
+async def test_decision_screen_saves_sql_scripts() -> None:
+    entries = _sample_entries()
+    profiles = _sample_profiles()
+    
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        app = DummyApp(entries, profiles, tmp_path)
+        
+        async with app.run_test() as pilot:
+            screen = app.screen
+            assert isinstance(screen, DecisionScreen)
+            
+            # Select second item by focusing the list and pressing enter
+            list_view = screen.query_one("#findings-list", ListView)
+            list_view.focus()
+            list_view.index = 1
+            await pilot.press("enter")
+            await pilot.pause()
+            
+            # Press Generate SQL (shortcut G)
+            await pilot.press("g")
+            await pilot.pause()
+            
+        # Verify the screen dismissed successfully with file paths
+        assert app.dismissed_result is not None
+        assert len(app.dismissed_result) > 0
+        
+        # Verify the files actually exist on disk
+        sql_folder = tmp_path / "scripts-db"
+        assert sql_folder.exists()
+        
+        # At least one profile SQL script should have ALTER TABLE statements
+        profile_b_sql = sql_folder / "profileB.sql"
+        assert profile_b_sql.exists()
+        
+        content = profile_b_sql.read_text(encoding="utf-8")
+        assert "USE [db_b];" in content
+        assert "ALTER TABLE [dbo].[users] ALTER COLUMN [email]" in content or "ALTER TABLE [dbo].[users] ADD [age]" in content
+
+
+@pytest.mark.asyncio
+async def test_decision_screen_no_resolutions_notifies_warning() -> None:
+    from unittest.mock import MagicMock
+    entries = _sample_entries()
+    profiles = _sample_profiles()
+    
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        app = DummyApp(entries, profiles, Path(tmp_dir))
+        
+        async with app.run_test() as pilot:
+            screen = app.screen
+            assert isinstance(screen, DecisionScreen)
+            
+            # Select second item (mounts all columns of dbo.users)
+            list_view = screen.query_one("#findings-list", ListView)
+            list_view.focus()
+            list_view.index = 1
+            await pilot.press("enter")
+            await pilot.pause()
+            
+            radio_sets = list(screen.query(RadioSet))
+            assert len(radio_sets) == 2
+            
+            radio_sets[0].children[2].value = True  # Ignore
+            radio_sets[1].children[1].value = True  # Ignore
+            await pilot.pause()
+            
+            # Also set the MissingTable (dbo.logs) decision to Ignore
+            screen.decisions[entries[2]] = (None, ())
+            
+            # Mock notify
+            app.notify = MagicMock()
+            
+            # Press Generate SQL
+            await pilot.press("g")
+            await pilot.pause()
+            
+            app.notify.assert_called_once_with(
+                "No se seleccionó ninguna corrección para generar SQL.",
+                severity="warning"
+            )
+
+
+@pytest.mark.asyncio
+async def test_decision_screen_sql_generation_error_notifies_error() -> None:
+    from unittest.mock import patch, MagicMock
+    entries = _sample_entries()
+    profiles = _sample_profiles()
+    
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        app = DummyApp(entries, profiles, Path(tmp_dir))
+        
+        async with app.run_test() as pilot:
+            screen = app.screen
+            assert isinstance(screen, DecisionScreen)
+            
+            # Select second item (mounts form with default resolutions)
+            list_view = screen.query_one("#findings-list", ListView)
+            list_view.focus()
+            list_view.index = 1
+            await pilot.press("enter")
+            await pilot.pause()
+            
+            # Mock notify
+            app.notify = MagicMock()
+            
+            # Mock write_sql_scripts to raise Exception
+            with patch("schema_comparator.compare.consolidation.write_sql_scripts", side_effect=Exception("Disk full")):
+                await pilot.press("g")
+                await pilot.pause()
+                
+            app.notify.assert_called_once_with(
+                "Error al generar scripts: Disk full",
+                severity="error"
+            )
+
+
+@pytest.mark.asyncio
+async def test_decision_screen_renders_missing_table_card_with_create_option() -> None:
+    entries = _sample_entries()
+    profiles = _sample_profiles()
+    
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        app = DummyApp(entries, profiles, Path(tmp_dir))
+        
+        async with app.run_test() as pilot:
+            screen = app.screen
+            assert isinstance(screen, DecisionScreen)
+            
+            # Select dbo.logs (first item) by focusing the list and pressing enter
+            list_view = screen.query_one("#findings-list", ListView)
+            list_view.focus()
+            list_view.index = 0
+            await pilot.press("enter")
+            await pilot.pause()
+            
+            # Verify that right panel contains the ColumnResolutionWidget for MissingTable
+            from schema_comparator.tui.decision_screen import ColumnResolutionWidget
+            cards = list(screen.query(ColumnResolutionWidget))
+            assert len(cards) == 1
+            assert cards[0].entry == entries[2]  # the MissingTable entry
+            
+            # Verify a RadioSet with 2 options is rendered (1 source profile + ignore)
+            from textual.widgets import RadioSet
+            radio_sets = list(cards[0].query(RadioSet))
+            assert len(radio_sets) == 1
+            assert radio_sets[0].disabled is False
+            assert len(radio_sets[0].children) == 2  # "Crear con def de profileA" + "Ignorar"
+            
+            # Verify a SelectionList IS rendered (for choosing destination profile)
+            from textual.widgets import SelectionList
+            sel_lists = list(cards[0].query(SelectionList))
+            assert len(sel_lists) == 1
+            assert sel_lists[0].disabled is False
+            
+            # Verify the decision defaults to creating from profileA
+            dec = screen.decisions[entries[2]]
+            assert dec[0] == "profileA"  # source profile
+            assert "profileB" in dec[1]  # destination profile

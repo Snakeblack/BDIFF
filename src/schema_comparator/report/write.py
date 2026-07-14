@@ -39,7 +39,7 @@ def generate_all_reports(result: ComparisonResult, *, out=sys.stdout) -> None:
     try:
         html_str = render_html(result)
         html_path = _report_path(f"schema-diff-report-{timestamp}.html")
-        with open(html_path, "w", encoding="utf-8") as f:
+        with open(html_path, "w", encoding="utf-8", newline="") as f:
             f.write(html_str)
         print(f"Reporte HTML generado: {html_path}", file=out)
     except Exception as exc:

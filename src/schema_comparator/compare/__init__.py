@@ -12,6 +12,7 @@ from schema_comparator.compare.models import (
     ComparisonResult,
     MissingColumn,
     MissingTable,
+    NamedColumnAttributes,
 )
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
     "ComparisonResult",
     "MissingColumn",
     "MissingTable",
+    "NamedColumnAttributes",
     "compare_snapshots",
     "ComparisonError",
     "InsufficientSnapshotsError",

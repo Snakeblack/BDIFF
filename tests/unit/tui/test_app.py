@@ -358,3 +358,19 @@ def test_run_tui_forwards_profiles_and_exclude_patterns() -> None:
 
     assert captured["profiles"] == profiles
     assert captured["exclude_patterns"] == ["LOG"]
+
+
+@pytest.mark.asyncio
+async def test_app_opens_decision_screen() -> None:
+    from schema_comparator.tui.decision_screen import DecisionScreen
+    app = SchemaComparatorApp(comparison_result_with_findings(), profiles=_profiles())
+    
+    async with app.run_test() as pilot:
+        tree = app.query_one(FindingsTree)
+        tree.focus()
+        await pilot.pause()
+        await pilot.press("d")
+        await pilot.pause()
+        
+        # Verify that DecisionScreen is now the active screen
+        assert isinstance(app.screen, DecisionScreen)

@@ -70,4 +70,4 @@ def test_write_reports_creates_paired_html_and_pdf_files_with_matching_timestamp
     pdf_stem = pdf_files[0].name.removesuffix(".pdf")
     assert html_stem == pdf_stem
 
-    assert html_files[0].read_text(encoding="utf-8") == render_html(result)
+    assert html_files[0].read_text(encoding="utf-8").replace("\r\n", "\n") == render_html(result).replace("\r\n", "\n")

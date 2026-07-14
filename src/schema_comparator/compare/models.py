@@ -9,14 +9,17 @@ from schema_comparator.discovery.models import ColumnSnapshot
 class MissingTable:
     """A table present in the union baseline but absent from one profile.
 
-    Carries only the qualified table identity and the profile lacking the
-    table — never column metadata from profiles where the table exists
-    (missing-column detection is a separate diff-entry type).
+    `present_columns` carries the full column definitions from each profile
+    where the table *does* exist — a tuple of
+    ``(profile_name, tuple[NamedColumnAttributes, ...])``, pre-sorted by
+    profile name.  Enables CREATE TABLE DDL generation during consolidation.
+    Defaults to empty for backward-compatible construction.
     """
 
     schema_name: str
     table_name: str
     missing_from_profile: str
+    present_columns: tuple[tuple[str, tuple["NamedColumnAttributes", ...]], ...] = ()
 
     @property
     def qualified_name(self) -> tuple[str, str]:
@@ -50,6 +53,15 @@ class ColumnAttributes:
             numeric_scale=column.numeric_scale,
             is_nullable=column.is_nullable,
         )
+
+
+@dataclass(frozen=True, slots=True)
+class NamedColumnAttributes:
+    """Column name + its comparable attributes, used by MissingTable to
+    carry the full column definition for CREATE TABLE DDL generation."""
+
+    name: str
+    attributes: ColumnAttributes
 
 
 @dataclass(frozen=True, slots=True)

@@ -12,6 +12,7 @@ from schema_comparator.compare.models import (
     ComparisonResult,
     MissingColumn,
     MissingTable,
+    NamedColumnAttributes,
 )
 from schema_comparator.discovery.models import SchemaSnapshot, TableSnapshot
 
@@ -50,6 +51,7 @@ def _build_table_index(
 def _evaluate_tables(
     union: set[tuple[str, str]],
     presence: dict[str, set[tuple[str, str]]],
+    table_index: dict[str, dict[tuple[str, str], TableSnapshot]],
     profile_names: tuple[str, ...],
 ) -> tuple[MissingTable, ...]:
     entries: list[MissingTable] = []
@@ -58,11 +60,31 @@ def _evaluate_tables(
         missing_from = sorted(
             name for name in profile_names if identity not in presence[name]
         )
+        if not missing_from:
+            continue
+
+        # Build present_columns from profiles that have this table
+        present_profiles = sorted(
+            name for name in profile_names if identity in presence[name]
+        )
+        present_columns: list[tuple[str, tuple[NamedColumnAttributes, ...]]] = []
+        for prof in present_profiles:
+            table_snap = table_index[prof][identity]
+            cols = tuple(
+                NamedColumnAttributes(
+                    name=col.name,
+                    attributes=ColumnAttributes.from_snapshot(col),
+                )
+                for col in table_snap.columns
+            )
+            present_columns.append((prof, cols))
+
         entries.extend(
             MissingTable(
                 schema_name=schema_name,
                 table_name=table_name,
                 missing_from_profile=name,
+                present_columns=tuple(present_columns),
             )
             for name in missing_from
         )
@@ -177,7 +199,7 @@ def compare_snapshots(snapshots: Sequence[SchemaSnapshot]) -> ComparisonResult:
     union, presence = _build_presence_index(snapshots)
     table_index = _build_table_index(snapshots)
 
-    table_entries = _evaluate_tables(union, presence, profile_names)
+    table_entries = _evaluate_tables(union, presence, table_index, profile_names)
     column_entries = _evaluate_columns(union, presence, table_index, profile_names)
 
     entries = tuple(sorted(table_entries + column_entries, key=_sort_key))

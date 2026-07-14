@@ -4,9 +4,11 @@ Each widget calls into `formatting.py` to build its content but owns no
 comparison-specific business logic itself.
 """
 
+from rich.text import Text
 from textual.widgets import Input, RichLog, Static, Tree
 
-from schema_comparator.compare.models import DiffEntry
+from schema_comparator.compare.models import ColumnMismatch, DiffEntry, MissingColumn, MissingTable
+from schema_comparator.report.attributes import format_attributes
 from schema_comparator.tui.formatting import (
     TreeData,
     detail_text,
@@ -29,12 +31,51 @@ class DetailPanel(Static):
         super().__init__(_NO_SELECTION_MESSAGE, *args, **kwargs)
 
     def show(self, entry: DiffEntry | None) -> None:
-        """Render `detail_text(entry)`, or a neutral placeholder when no
-        leaf (e.g. a group header) is selected."""
+        """Render a styled Rich detail card for the selected DiffEntry,
+        or a neutral placeholder when no leaf is selected."""
         if entry is None:
-            self.update(_NO_SELECTION_MESSAGE)
+            self.update(f"[dim]{_NO_SELECTION_MESSAGE}[/dim]")
             return
-        self.update(detail_text(entry))
+
+        if isinstance(entry, ColumnMismatch):
+            schema, table = entry.qualified_name
+            markup = [
+                f"[bold cyan]🔍 Detalle de Discrepancia de Atributos[/]",
+                f"[bold]Tabla:[/bold] {schema}.{table}",
+                f"[bold]Columna:[/bold] [yellow]{entry.column_name}[/]",
+                "",
+                "[bold underline]Definición por Perfil de Conexión:[/bold underline]",
+            ]
+            for profile, attrs in entry.values_by_profile:
+                markup.append(f"  • [bold]{profile}:[/bold] [green]{format_attributes(attrs)}[/]")
+            self.update("\n".join(markup))
+            
+        elif isinstance(entry, MissingColumn):
+            schema, table = entry.qualified_name
+            markup = [
+                f"[bold orange3]➖ Detalle de Columna Faltante[/]",
+                f"[bold]Tabla:[/bold] {schema}.{table}",
+                f"[bold]Columna:[/bold] [orange3]{entry.column_name}[/]",
+                "",
+                f"⚠️ [bold red]Faltante en el perfil:[/bold red] [bold underline]{entry.missing_from_profile}[/]",
+                "",
+                "[bold underline]Definición en perfiles presentes:[/bold underline]",
+            ]
+            for profile, attrs in entry.present_attributes:
+                markup.append(f"  • [bold]{profile}:[/bold] [green]{format_attributes(attrs)}[/]")
+            self.update("\n".join(markup))
+            
+        elif isinstance(entry, MissingTable):
+            schema, table = entry.qualified_name
+            markup = [
+                f"[bold red]✖ Detalle de Tabla Faltante[/]",
+                f"[bold]Tabla:[/bold] [red]{schema}.{table}[/]",
+                "",
+                f"⚠️ [bold red]Faltante en el perfil:[/bold red] [bold underline]{entry.missing_from_profile}[/]",
+            ]
+            self.update("\n".join(markup))
+        else:
+            self.update(detail_text(entry))
 
 
 class FindingsTree(Tree):
@@ -54,6 +95,17 @@ class FindingsTree(Tree):
     def on_mount(self) -> None:
         self.populate(self._tree_data)
 
+    def _styled_leaf_label(self, entry: DiffEntry) -> Text:
+        """Build a visually rich, colored label for tree leaf nodes."""
+        if isinstance(entry, MissingTable):
+            return Text.from_markup(f"[bold red]✖[/] [red]tabla faltante[/] (de [bold]{entry.missing_from_profile}[/bold])")
+        if isinstance(entry, MissingColumn):
+            return Text.from_markup(f"[bold orange3]➖[/] [bold orange3]{entry.column_name}[/]: [orange3]columna faltante[/] (de [bold]{entry.missing_from_profile}[/bold])")
+        if isinstance(entry, ColumnMismatch):
+            profiles = ", ".join(p for p, _ in entry.values_by_profile)
+            return Text.from_markup(f"[bold yellow]≠[/] [bold yellow]{entry.column_name}[/]: [yellow]discrepancia de atributos[/] entre [bold]{profiles}[/bold]")
+        return Text(leaf_label(entry))
+
     def populate(self, tree_data: TreeData) -> None:
         """Rebuild the tree: one root child per `TableGroup`, one leaf per
         entry in the group, each leaf's `data` set to the originating
@@ -63,7 +115,7 @@ class FindingsTree(Tree):
         for group in tree_data.groups:
             group_node = self.root.add(group.qualified_label, expand=True)
             for entry in group.entries:
-                group_node.add_leaf(leaf_label(entry), data=entry)
+                group_node.add_leaf(self._styled_leaf_label(entry), data=entry)
 
     def apply_filter(self, filter_text: str) -> None:
         """Rebuild the visible tree from `self._tree_data`, keeping only
@@ -79,7 +131,7 @@ class FindingsTree(Tree):
             group_node = self.root.add(group.qualified_label, expand=True)
             for entry in group.entries:
                 if entry_matches(entry, filter_text):
-                    group_node.add_leaf(leaf_label(entry), data=entry)
+                    group_node.add_leaf(self._styled_leaf_label(entry), data=entry)
 
 
 class StatusLog(RichLog):

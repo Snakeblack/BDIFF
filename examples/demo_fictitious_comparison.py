@@ -1,4 +1,4 @@
-"""Fictitious end-to-end demo: build two fake schema snapshots in memory
+"""Fictitious end-to-end demo: build four fake schema snapshots in memory
 (no SQL Server connection needed), run them through the real comparison
 engine, and generate real HTML/PDF/console reports.
 
@@ -6,9 +6,6 @@ Useful to see the tool's output shape before wiring up real database
 connections. Run from the repo root with the project's venv:
 
     .\\.venv\\Scripts\\python.exe examples\\demo_fictitious_comparison.py
-
-This writes `schema-diff-report-<timestamp>.html` and `.pdf` in the
-current directory, and prints the console summary to stdout.
 """
 
 from __future__ import annotations
@@ -43,8 +40,8 @@ def _column(
     )
 
 
-def build_service_a() -> SchemaSnapshot:
-    """Fictitious "policies-service" schema (the baseline)."""
+def build_policies_db() -> SchemaSnapshot:
+    """Fictitious 'policies-db' schema."""
     customers = TableSnapshot(
         schema_name="dbo",
         table_name="customers",
@@ -52,8 +49,7 @@ def build_service_a() -> SchemaSnapshot:
             _column("id", "int", nullable=False, ordinal=1),
             _column("full_name", "nvarchar", length=200, ordinal=2),
             _column("email", "nvarchar", length=320, ordinal=3),
-            # Only in service A -> MissingColumn in service B.
-            _column("loyalty_tier", "nvarchar", length=20, ordinal=4),
+            _column("loyalty_tier", "nvarchar", length=20, ordinal=4),  # length 20
         ),
     )
     policies = TableSnapshot(
@@ -62,18 +58,17 @@ def build_service_a() -> SchemaSnapshot:
         columns=(
             _column("id", "int", nullable=False, ordinal=1),
             _column("customer_id", "int", nullable=False, ordinal=2),
-            # decimal(10,2) here vs decimal(12,4) in service B -> ColumnMismatch.
-            _column("premium_amount", "decimal", precision=10, scale=2, ordinal=3),
+            _column("premium_amount", "decimal", precision=10, scale=2, ordinal=3),  # 10,2
         ),
     )
     return SchemaSnapshot(
-        profile_name="policies-service",
+        profile_name="policies-db",
         tables=(customers, policies),
     )
 
 
-def build_service_b() -> SchemaSnapshot:
-    """Fictitious "claims-service" schema (diverges on purpose)."""
+def build_claims_db() -> SchemaSnapshot:
+    """Fictitious 'claims-db' schema."""
     customers = TableSnapshot(
         schema_name="dbo",
         table_name="customers",
@@ -81,7 +76,7 @@ def build_service_b() -> SchemaSnapshot:
             _column("id", "int", nullable=False, ordinal=1),
             _column("full_name", "nvarchar", length=200, ordinal=2),
             _column("email", "nvarchar", length=320, ordinal=3),
-            # loyalty_tier intentionally absent here.
+            # loyalty_tier is missing here
         ),
     )
     policies = TableSnapshot(
@@ -90,27 +85,85 @@ def build_service_b() -> SchemaSnapshot:
         columns=(
             _column("id", "int", nullable=False, ordinal=1),
             _column("customer_id", "int", nullable=False, ordinal=2),
-            _column("premium_amount", "decimal", precision=12, scale=4, ordinal=3),
-        ),
-    )
-    # "claims" table only exists in service B -> MissingTable in service A.
-    claims = TableSnapshot(
-        schema_name="dbo",
-        table_name="claims",
-        columns=(
-            _column("id", "int", nullable=False, ordinal=1),
-            _column("policy_id", "int", nullable=False, ordinal=2),
-            _column("status", "nvarchar", length=30, ordinal=3),
+            _column("premium_amount", "decimal", precision=12, scale=4, ordinal=3),  # 12,4 (Mismatch)
         ),
     )
     return SchemaSnapshot(
-        profile_name="claims-service",
-        tables=(customers, policies, claims),
+        profile_name="claims-db",
+        tables=(customers, policies),
+    )
+
+
+def build_billing_db() -> SchemaSnapshot:
+    """Fictitious 'billing-db' schema."""
+    customers = TableSnapshot(
+        schema_name="dbo",
+        table_name="customers",
+        columns=(
+            _column("id", "int", nullable=False, ordinal=1),
+            _column("full_name", "nvarchar", length=200, ordinal=2),
+            _column("email", "nvarchar", length=320, ordinal=3),
+            _column("loyalty_tier", "nvarchar", length=50, ordinal=4),  # length 50 (Mismatch)
+        ),
+    )
+    policies = TableSnapshot(
+        schema_name="dbo",
+        table_name="policies",
+        columns=(
+            _column("id", "int", nullable=False, ordinal=1),
+            _column("customer_id", "int", nullable=False, ordinal=2),
+            _column("premium_amount", "decimal", precision=10, scale=2, ordinal=3),  # 10,2
+        ),
+    )
+    invoices = TableSnapshot(
+        schema_name="dbo",
+        table_name="invoices",
+        columns=(
+            _column("id", "int", nullable=False, ordinal=1),
+            _column("invoice_date", "datetime", ordinal=2),
+            _column("tax_amount", "decimal", precision=18, scale=2, ordinal=3),
+        ),
+    )
+    return SchemaSnapshot(
+        profile_name="billing-db",
+        tables=(customers, policies, invoices),
+    )
+
+
+def build_reporting_db() -> SchemaSnapshot:
+    """Fictitious 'reporting-db' schema (warehouse-oriented)."""
+    customers = TableSnapshot(
+        schema_name="dbo",
+        table_name="customers",
+        columns=(
+            _column("id", "int", nullable=False, ordinal=1),
+            _column("full_name", "nvarchar", length=200, ordinal=2),
+            _column("email", "nvarchar", length=100, ordinal=3),  # length 100 (Mismatch)
+            # loyalty_tier is missing here
+        ),
+    )
+    invoices = TableSnapshot(
+        schema_name="dbo",
+        table_name="invoices",
+        columns=(
+            _column("id", "int", nullable=False, ordinal=1),
+            _column("invoice_date", "datetime", ordinal=2),
+            # tax_amount is missing here
+        ),
+    )
+    return SchemaSnapshot(
+        profile_name="reporting-db",
+        tables=(customers, invoices),
     )
 
 
 def main() -> None:
-    snapshots = [build_service_a(), build_service_b()]
+    snapshots = [
+        build_policies_db(),
+        build_claims_db(),
+        build_billing_db(),
+        build_reporting_db(),
+    ]
     result = compare_snapshots(snapshots)
 
     print(f"Compared profiles: {', '.join(result.compared_profiles)}")

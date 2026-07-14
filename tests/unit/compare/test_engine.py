@@ -6,6 +6,7 @@ from schema_comparator.compare.models import (
     ColumnMismatch,
     MissingColumn,
     MissingTable,
+    NamedColumnAttributes,
 )
 from compare.conftest import make_column, make_snapshot, make_snapshot_with_tables, make_table
 
@@ -55,7 +56,8 @@ def test_table_missing_from_one_of_three_profiles() -> None:
 
     assert result.entries == (
         MissingTable(
-            schema_name="sales", table_name="Payment", missing_from_profile="c"
+            schema_name="sales", table_name="Payment", missing_from_profile="c",
+            present_columns=(("a", ()), ("b", ())),
         ),
     )
 
@@ -72,11 +74,13 @@ def test_table_missing_from_multiple_profiles() -> None:
             schema_name="archive",
             table_name="Invoice",
             missing_from_profile="b",
+            present_columns=(("a", ()),),
         ),
         MissingTable(
             schema_name="archive",
             table_name="Invoice",
             missing_from_profile="c",
+            present_columns=(("a", ()),),
         ),
     )
 
@@ -198,7 +202,13 @@ def test_table_missing_entirely_produces_no_missing_column_entries_for_that_prof
 
     assert result.entries == (
         MissingTable(
-            schema_name="sales", table_name="Invoice", missing_from_profile="c"
+            schema_name="sales",
+            table_name="Invoice",
+            missing_from_profile="c",
+            present_columns=(
+                ("a", (NamedColumnAttributes(name="notes", attributes=ColumnAttributes("int", None, None, None, False)),)),
+                ("b", (NamedColumnAttributes(name="notes", attributes=ColumnAttributes("int", None, None, None, False)),)),
+            ),
         ),
     )
 
@@ -213,7 +223,12 @@ def test_table_present_in_only_one_profile_produces_no_column_level_entries() ->
 
     assert result.entries == (
         MissingTable(
-            schema_name="sales", table_name="Invoice", missing_from_profile="b"
+            schema_name="sales",
+            table_name="Invoice",
+            missing_from_profile="b",
+            present_columns=(
+                ("a", (NamedColumnAttributes(name="notes", attributes=ColumnAttributes("int", None, None, None, False)),)),
+            ),
         ),
     )
 
@@ -407,7 +422,12 @@ def test_cross_type_ordering_missing_table_before_missing_column_before_mismatch
             ),
         ),
         MissingTable(
-            schema_name="sales", table_name="Payment", missing_from_profile="b"
+            schema_name="sales",
+            table_name="Payment",
+            missing_from_profile="b",
+            present_columns=(
+                ("a", (NamedColumnAttributes(name="id", attributes=ColumnAttributes("int", None, None, None, False)),)),
+            ),
         ),
     )
 

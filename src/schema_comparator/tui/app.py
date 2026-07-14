@@ -6,8 +6,9 @@ import sys
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.containers import Container, Horizontal, Vertical
 from textual.reactive import reactive
-from textual.widgets import Footer, Input, Static, Tree
+from textual.widgets import Footer, Input, Label, Static, Tree
 
 from schema_comparator.compare.models import ComparisonResult
 from schema_comparator.config.models import ConnectionProfile
@@ -26,9 +27,151 @@ _NO_DRIFT_MESSAGE = "No se detectaron diferencias entre los perfiles comparados.
 
 
 class SchemaComparatorApp(App):
-    """Single-screen, read-only findings browser for a `ComparisonResult`,
-    with in-memory exclude editing, re-run comparison, and on-demand
-    report generation actions (REQ-interactive-tui-011/012/013)."""
+    """Single-screen, findings browser for a `ComparisonResult`
+    with enterprise-grade dashboard styling, in-memory exclude editing,
+    re-run comparison, and report generation."""
+
+    DEFAULT_CSS = """
+    SchemaComparatorApp {
+        background: $background;
+        color: $text;
+    }
+    
+    #main-body {
+        layout: horizontal;
+        height: 1fr;
+    }
+    
+    #left-container {
+        width: 40%;
+        height: 100%;
+        layout: vertical;
+        border-right: tall $primary-darken-1;
+    }
+    
+    #right-container {
+        width: 60%;
+        height: 100%;
+        layout: vertical;
+    }
+    
+    #filter-input {
+        margin: 1 1 0 1;
+        border: tall $primary-darken-2;
+        background: $surface;
+    }
+    
+    #filter-input:focus {
+        border: double $accent;
+    }
+    
+    #findings-tree {
+        height: 1fr;
+        margin: 0 1 1 1;
+        border: round $primary;
+        scrollbar-gutter: stable;
+    }
+    
+    #findings-tree:focus {
+        border: double $accent;
+    }
+    
+    #detail-panel {
+        height: 100%;
+        margin: 1;
+        padding: 1 2;
+        border: round $primary;
+        background: $surface;
+        scrollbar-gutter: stable;
+        overflow-y: auto;
+    }
+    
+    #detail-panel:focus {
+        border: double $accent;
+    }
+
+    #bottom-container {
+        height: 8;
+        layout: horizontal;
+        border-top: tall $primary-darken-1;
+        background: $surface-darken-1;
+    }
+    
+    #exclude-container {
+        width: 50%;
+        height: 100%;
+        layout: vertical;
+        padding: 0 1;
+        border-right: solid $primary-darken-2;
+    }
+    
+    #exclude-label {
+        text-style: bold;
+        color: $accent;
+        margin: 1 0 0 1;
+    }
+    
+    #exclude-editor {
+        margin: 0 1 1 1;
+        border: round $primary;
+        background: $background;
+    }
+    
+    #exclude-editor:focus {
+        border: double $accent;
+    }
+    
+    #log-container {
+        width: 50%;
+        height: 100%;
+        layout: vertical;
+        padding: 0 1;
+    }
+    
+    #log-label {
+        text-style: bold;
+        color: $accent;
+        margin: 1 0 0 1;
+    }
+    
+    #status-log {
+        height: 1fr;
+        margin: 0 1 1 1;
+        border: round $primary;
+        background: $background;
+        scrollbar-gutter: stable;
+    }
+    
+    #status-log:focus {
+        border: double $accent;
+    }
+    
+    SummaryHeader {
+        background: $primary;
+        color: $text;
+        text-style: bold;
+        height: 3;
+        content-align: center middle;
+        text-align: center;
+        border-bottom: tall $primary-darken-2;
+    }
+
+    #no-drift-container {
+        align: center middle;
+        height: 1fr;
+    }
+    #no-drift-message {
+        text-style: bold;
+        color: $success;
+        border: double $success;
+        padding: 2 4;
+        background: $surface;
+        content-align: center middle;
+        text-align: center;
+        height: 7;
+        width: 60;
+    }
+    """
 
     BINDINGS = [
         Binding("q,Q", "quit", "Quit"),
@@ -37,6 +180,7 @@ class SchemaComparatorApp(App):
         Binding("e,E", "focus_exclude_editor", "Editar excludes"),
         Binding("r,R", "run_comparison", "Re-ejecutar comparación"),
         Binding("g,G", "generate_reports", "Generar reportes"),
+        Binding("d,D", "open_decision_screen", "Consolidar Diferencias"),
     ]
 
     filter_text: reactive[str] = reactive("")
@@ -57,16 +201,25 @@ class SchemaComparatorApp(App):
     def compose(self) -> ComposeResult:
         yield SummaryHeader(header_text(self._result))
         if not self._tree_data.groups:
-            yield Static(_NO_DRIFT_MESSAGE, id="no-drift-message")
+            with Container(id="no-drift-container"):
+                yield Static(_NO_DRIFT_MESSAGE, id="no-drift-message")
         else:
-            yield Input(
-                placeholder="Filtrar por tabla, columna o tipo de diferencia…",
-                id="filter-input",
-            )
-            yield FindingsTree(self._tree_data, id="findings-tree")
-            yield DetailPanel(id="detail-panel")
-        yield ExcludeEditor(self._exclude_patterns, id="exclude-editor")
-        yield StatusLog(id="status-log")
+            with Container(id="main-body"):
+                with Vertical(id="left-container"):
+                    yield Input(
+                        placeholder="Filtrar por tabla, columna o tipo de diferencia… (Presiona /)",
+                        id="filter-input",
+                    )
+                    yield FindingsTree(self._tree_data, id="findings-tree")
+                with Vertical(id="right-container"):
+                    yield DetailPanel(id="detail-panel")
+        with Horizontal(id="bottom-container"):
+            with Vertical(id="exclude-container"):
+                yield Label("Excluir tablas (coincidencia de texto, separadas por espacio):", id="exclude-label")
+                yield ExcludeEditor(self._exclude_patterns, id="exclude-editor")
+            with Vertical(id="log-container"):
+                yield Label("Registro de actividad:", id="log-label")
+                yield StatusLog(id="status-log")
         yield Footer()
 
     def action_focus_filter(self) -> None:
@@ -135,8 +288,54 @@ class SchemaComparatorApp(App):
         buffer = io.StringIO()
         try:
             generate_all_reports(self._result, out=buffer)
-        finally:
             self.call_from_thread(self.query_one(StatusLog).info, buffer.getvalue())
+        except Exception as exc:
+            self.call_from_thread(
+                self.query_one(StatusLog).error,
+                f"Falló la generación de reportes: {exc}",
+            )
+
+    def action_open_decision_screen(self) -> None:
+        from schema_comparator.tui.decision_screen import DecisionScreen
+        from schema_comparator.compare.models import ColumnMismatch, MissingColumn, MissingTable
+        from pathlib import Path
+
+        relevant_entries = [
+            e for e in self._result.entries
+            if isinstance(e, (ColumnMismatch, MissingColumn, MissingTable))
+        ]
+        if not relevant_entries:
+            self.query_one(StatusLog).info("No hay diferencias de tablas, atributos o columnas para consolidar.")
+            return
+
+        def handle_decision_screen_result(result) -> None:
+            if result:
+                self.query_one(StatusLog).info(
+                    f"Consolidación exitosa. Scripts generados en 'scripts-db/': "
+                    f"{', '.join(Path(f).name for f in result)}"
+                )
+            else:
+                self.query_one(StatusLog).info("Consolidación cancelada.")
+
+        # Hallar la raíz del proyecto
+        repo_root = Path(__file__).resolve().parents[3]
+
+        profiles_to_pass = self._profiles
+        if not profiles_to_pass:
+            from schema_comparator.config.models import ConnectionProfile
+            profiles_to_pass = [
+                ConnectionProfile(name=p, connection_string=f"Database={p};")
+                for p in self._result.compared_profiles
+            ]
+
+        self.push_screen(
+            DecisionScreen(
+                entries=tuple(relevant_entries),
+                profiles=tuple(profiles_to_pass),
+                repo_root=repo_root
+            ),
+            callback=handle_decision_screen_result
+        )
 
 
 def run_tui(

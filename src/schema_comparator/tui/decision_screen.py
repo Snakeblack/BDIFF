@@ -1,0 +1,455 @@
+"""TUI view for consolidating schema mismatches and missing columns (fase de decisiones)."""
+
+from pathlib import Path
+from textual.app import ComposeResult
+from textual.binding import Binding
+from textual.containers import Container, Horizontal, Vertical
+from textual.screen import Screen
+from textual.widgets import Button, Label, ListItem, ListView, RadioButton, RadioSet, SelectionList
+
+from schema_comparator.compare.models import ColumnAttributes, ColumnMismatch, DiffEntry, MissingColumn, MissingTable, NamedColumnAttributes
+from schema_comparator.report.attributes import format_attributes
+from schema_comparator.config.models import ConnectionProfile
+
+
+class DecisionScreen(Screen):
+    """Interactive form screen to consolidate schema differences and generate SQL DDL fixes."""
+
+    DEFAULT_CSS = """
+    DecisionScreen {
+        align: center middle;
+    }
+    #decision-container {
+        width: 95%;
+        height: 90%;
+        border: thick $primary;
+        background: $panel;
+    }
+    #decision-title {
+        text-align: center;
+        background: $primary;
+        color: $text;
+        text-style: bold;
+        height: 3;
+        content-align: center middle;
+        border-bottom: tall $primary-darken-2;
+    }
+    #decision-body {
+        layout: horizontal;
+        height: 1fr;
+    }
+    #left-panel {
+        width: 35%;
+        height: 100%;
+        border-right: tall $primary-darken-1;
+    }
+    #findings-list {
+        height: 100%;
+        background: $background;
+    }
+    #findings-list:focus {
+        border: double $accent;
+    }
+    #right-panel {
+        width: 65%;
+        height: 100%;
+        padding: 1 2;
+        background: $surface;
+        overflow-y: auto;
+    }
+    #footer-panel {
+        height: 4;
+        border-top: tall $primary-darken-1;
+        layout: horizontal;
+        align: right middle;
+        padding: 0 2;
+        background: $surface-darken-1;
+    }
+    .panel-title {
+        text-style: bold;
+        padding: 0 1;
+        background: $primary-darken-1;
+        color: $text;
+        margin-bottom: 1;
+        text-align: center;
+        height: 1;
+    }
+    .profile-selection-list {
+        height: 12;
+        border: round $primary;
+        padding: 0 1;
+        background: $background;
+    }
+    .profile-selection-list:focus {
+        border: double $accent;
+    }
+    .button-bar {
+        margin-left: 1;
+    }
+    RadioSet {
+        border: round $primary;
+        background: $background;
+        padding: 0 1;
+        margin-bottom: 1;
+    }
+    RadioSet:focus {
+        border: double $accent;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape,q,Q", "back", "Volver"),
+        Binding("g,G", "generate_sql", "Generar SQL"),
+    ]
+
+    def __init__(
+        self,
+        entries: tuple[DiffEntry, ...],
+        profiles: tuple[ConnectionProfile, ...],
+        repo_root: Path,
+        **kwargs
+    ) -> None:
+        super().__init__(**kwargs)
+        self.entries = entries
+        self.profiles = profiles
+        self.repo_root = repo_root
+        self.profile_names = tuple(p.name for p in self.profiles)
+        
+        # State: maps entry -> (target_attributes, tuple_of_dest_profiles)
+        self.decisions: dict[DiffEntry, tuple[ColumnAttributes | None, tuple[str, ...]]] = {}
+        self.table_by_id: dict[str, str] = {}
+        
+        # Populate initial default decisions
+        for entry in self.entries:
+            self.decisions[entry] = self.get_default_decision(entry)
+
+        # Group entries by unique table
+        self.table_groups: dict[str, list[DiffEntry]] = {}
+        for entry in self.entries:
+            schema, table = entry.qualified_name
+            tbl_key = f"{schema}.{table}"
+            self.table_groups.setdefault(tbl_key, []).append(entry)
+        self.table_keys = sorted(self.table_groups.keys())
+
+    def compose(self) -> ComposeResult:
+        with Container(id="decision-container"):
+            yield Label("Fase de Decisiones: Consolidación de Esquemas", id="decision-title")
+            with Container(id="decision-body"):
+                with Vertical(id="left-panel"):
+                    yield Label("Tablas con discrepancias", classes="panel-title")
+                    yield ListView(id="findings-list")
+                with Vertical(id="right-panel"):
+                    yield Label("Selecciona una tabla de la lista", id="empty-state-label")
+            with Horizontal(id="footer-panel"):
+                yield Button("Cancelar [Esc]", variant="error", id="btn-cancel")
+                yield Button("Generar SQL [G]", variant="success", id="btn-generate", classes="button-bar")
+
+    def on_mount(self) -> None:
+        self.populate_list()
+
+    def populate_list(self) -> None:
+        list_view = self.query_one("#findings-list", ListView)
+        list_view.clear()
+        self.table_by_id.clear()
+        
+        for i, tbl_key in enumerate(self.table_keys):
+            entries = self.table_groups[tbl_key]
+            title = f" 📋 {tbl_key} ({len(entries)} hallazgo{'s' if len(entries) > 1 else ''})"
+            item_id = f"table-item-{i}"
+            item = ListItem(Label(title), id=item_id)
+            list_view.append(item)
+            self.table_by_id[item_id] = tbl_key
+
+    def on_list_view_selected(self, event: ListView.Selected) -> None:
+        if event.item and event.item.id in self.table_by_id:
+            tbl_key = self.table_by_id[event.item.id]
+            self.show_resolution_form(tbl_key)
+
+    def get_default_decision(self, entry: DiffEntry) -> tuple[ColumnAttributes | str | None, tuple[str, ...]]:
+        if isinstance(entry, ColumnMismatch):
+            _, target_attrs = entry.values_by_profile[0]
+            default_dests = tuple(
+                prof for prof, attrs in entry.values_by_profile
+                if attrs != target_attrs
+            )
+            return target_attrs, default_dests
+            
+        elif isinstance(entry, MissingColumn):
+            if entry.present_attributes:
+                _, target_attrs = entry.present_attributes[0]
+                return target_attrs, (entry.missing_from_profile,)
+                
+        elif isinstance(entry, MissingTable):
+            if entry.present_columns:
+                source_prof, _ = entry.present_columns[0]
+                return source_prof, (entry.missing_from_profile,)
+            
+        return None, ()
+
+    def show_resolution_form(self, tbl_key: str) -> None:
+        right_panel = self.query_one("#right-panel")
+        right_panel.remove_children()
+        
+        # Header title for selected table
+        right_panel.mount(Label(f"[bold underline]Consolidación de Tabla:[/bold underline] [cyan]{tbl_key}[/cyan]", classes="table-header-title"))
+        right_panel.mount(Label(""))
+        
+        entries = self.table_groups[tbl_key]
+        for entry in entries:
+            right_panel.mount(ColumnResolutionWidget(entry, self))
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn-cancel":
+            self.action_back()
+        elif event.button.id == "btn-generate":
+            self.action_generate_sql()
+
+    def action_back(self) -> None:
+        self.dismiss(None)
+
+    def action_generate_sql(self) -> None:
+        from schema_comparator.compare.consolidation import ColumnResolution, TableResolution, write_sql_scripts
+        
+        resolutions = []
+        table_resolutions = []
+        for entry, (target, dests) in self.decisions.items():
+            if target is not None and dests:
+                schema, table = entry.qualified_name
+                if isinstance(entry, MissingTable):
+                    # target is the source profile name (str)
+                    source_prof = target
+                    columns = None
+                    for prof, cols in entry.present_columns:
+                        if prof == source_prof:
+                            columns = cols
+                            break
+                    if columns:
+                        table_resolutions.append(
+                            TableResolution(
+                                schema_name=schema,
+                                table_name=table,
+                                columns=columns,
+                                profiles_to_update=tuple(dests),
+                            )
+                        )
+                else:
+                    is_missing = isinstance(entry, MissingColumn)
+                    resolutions.append(
+                        ColumnResolution(
+                            schema_name=schema,
+                            table_name=table,
+                            column_name=entry.column_name,
+                            target_attributes=target,
+                            profiles_to_update=tuple(dests),
+                            is_missing_column=is_missing
+                        )
+                    )
+                
+        if not resolutions and not table_resolutions:
+            self.app.notify("No se seleccionó ninguna corrección para generar SQL.", severity="warning")
+            return
+            
+        try:
+            generated_files = write_sql_scripts(
+                resolutions, self.repo_root, list(self.profiles),
+                table_resolutions=table_resolutions,
+            )
+            self.dismiss(generated_files)
+        except Exception as exc:
+            self.app.notify(f"Error al generar scripts: {exc}", severity="error")
+
+    def on_radio_set_changed(self, event: RadioSet.Changed) -> None:
+        """Delegate RadioSet change event to the corresponding ColumnResolutionWidget."""
+        for widget in self.query(ColumnResolutionWidget):
+            try:
+                if widget.query_one(RadioSet) == event.radio_set:
+                    widget.handle_radio_change(event.index)
+                    break
+            except Exception:
+                pass
+
+    def on_selection_list_selected_changed(self, event: SelectionList.SelectedChanged) -> None:
+        """Delegate SelectionList change event to the corresponding ColumnResolutionWidget."""
+        for widget in self.query(ColumnResolutionWidget):
+            try:
+                if widget.query_one(SelectionList) == event.selection_list:
+                    widget.handle_selection_change(event.selection_list.selected)
+                    break
+            except Exception:
+                pass
+
+
+class ColumnResolutionWidget(Container):
+    """Modular card containing form controls to resolve a single column's differences."""
+
+    DEFAULT_CSS = """
+    ColumnResolutionWidget {
+        border: round $primary-darken-1;
+        background: $panel;
+        padding: 1 2;
+        margin-bottom: 1;
+        height: auto;
+    }
+    .column-title {
+        text-style: bold;
+        color: $accent;
+        margin-bottom: 1;
+    }
+    .dest-label {
+        margin-top: 1;
+        text-style: bold;
+    }
+    """
+
+    def __init__(self, entry: DiffEntry, decision_screen: DecisionScreen, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.entry = entry
+        self.decision_screen = decision_screen
+        self.options = self.build_options()
+        
+    def build_options(self) -> list[tuple]:
+        options = []
+        if isinstance(self.entry, ColumnMismatch):
+            attr_to_profiles = {}
+            for prof, attrs in self.entry.values_by_profile:
+                attr_to_profiles.setdefault(attrs, []).append(prof)
+                
+            for attrs, profs in attr_to_profiles.items():
+                label = f"{format_attributes(attrs)}  (ej. en: {', '.join(profs)})"
+                options.append((attrs, label))
+            options.append((None, "Ignorar discrepancia (no generar cambios)"))
+            
+        elif isinstance(self.entry, MissingColumn):
+            attr_to_profiles = {}
+            for prof, attrs in self.entry.present_attributes:
+                attr_to_profiles.setdefault(attrs, []).append(prof)
+                
+            for attrs, profs in attr_to_profiles.items():
+                label = f"Agregar como {format_attributes(attrs)}  (copiar de: {', '.join(profs)})"
+                options.append((attrs, label))
+            options.append((None, "No agregar (Ignorar)"))
+            
+        elif isinstance(self.entry, MissingTable):
+            for prof, cols in self.entry.present_columns:
+                col_count = len(cols)
+                label = f"Crear con definición de '{prof}' ({col_count} columnas)"
+                options.append((prof, label))  # value is the source profile name
+            options.append((None, "Ignorar (no crear)"))
+            
+        return options
+
+    def compose(self) -> ComposeResult:
+        if isinstance(self.entry, MissingTable):
+            yield Label(f"Tabla: [bold]{self.entry.schema_name}.{self.entry.table_name}[/bold] (Tabla Faltante en [bold]{self.entry.missing_from_profile}[/bold])", classes="column-title")
+            
+            decision = self.decision_screen.decisions.get(self.entry)
+            target, selected_profiles = decision
+            
+            active_index = len(self.options) - 1
+            for i, (val, _) in enumerate(self.options):
+                if val == target:
+                    active_index = i
+                    break
+            
+            yield Label("[bold]Seleccionar perfil fuente para la definición:[/bold]")
+            radio_set = RadioSet(
+                *[RadioButton(label, value=(i == active_index)) for i, (_, label) in enumerate(self.options)]
+            )
+            yield radio_set
+            
+            # Show column preview of the currently selected source
+            if target is not None:
+                for prof, cols in self.entry.present_columns:
+                    if prof == target:
+                        col_preview = ", ".join(f"[cyan]{c.name}[/cyan]" for c in cols[:10])
+                        if len(cols) > 10:
+                            col_preview += f" ... (+{len(cols) - 10} más)"
+                        yield Label(f"[dim]Columnas: {col_preview}[/dim]")
+                        break
+            
+            yield Label("[bold]Crear tabla en:[/bold]", classes="dest-label")
+            selection_list = SelectionList(classes="profile-selection-list")
+            selection_list.add_option((
+                self.entry.missing_from_profile,
+                self.entry.missing_from_profile,
+                self.entry.missing_from_profile in selected_profiles,
+            ))
+            selection_list.disabled = (target is None)
+            yield selection_list
+            return
+
+        diff_type = "Discrepancia de Atributos" if isinstance(self.entry, ColumnMismatch) else "Columna Faltante"
+        yield Label(f"Columna: [bold]{self.entry.column_name}[/bold] ({diff_type})", classes="column-title")
+        
+        # RadioSet
+        decision = self.decision_screen.decisions.get(self.entry)
+        target_attrs, selected_profiles = decision
+        
+        active_index = len(self.options) - 1
+        for i, (attrs, _) in enumerate(self.options):
+            if attrs == target_attrs:
+                active_index = i
+                break
+                
+        yield Label("[bold]Seleccionar definición correcta:[/bold]")
+        radio_set = RadioSet(
+            *[RadioButton(label, value=(i == active_index)) for i, (_, label) in enumerate(self.options)]
+        )
+        yield radio_set
+        
+        # SelectionList
+        yield Label("[bold]Aplicar corrección en:[/bold] (Presiona [Espacio] para marcar/desmarcar)", classes="dest-label")
+        dest_profiles = list(self.decision_screen.profile_names) if isinstance(self.entry, ColumnMismatch) else [self.entry.missing_from_profile]
+        
+        selection_list = SelectionList(classes="profile-selection-list")
+        for p in dest_profiles:
+            selection_list.add_option((p, p, p in selected_profiles))
+            
+        selection_list.disabled = (target_attrs is None)
+        yield selection_list
+
+    def handle_radio_change(self, idx: int) -> None:
+        """Handle option changes from the radio button set."""
+        if idx < 0 or idx >= len(self.options):
+            return
+            
+        target, _ = self.options[idx]
+        selection_list = self.query_one(SelectionList)
+        
+        if target is None:
+            selection_list.disabled = True
+            selection_list.deselect_all()
+            self.decision_screen.decisions[self.entry] = (None, ())
+        elif isinstance(self.entry, MissingTable):
+            selection_list.disabled = False
+            default_dests = (self.entry.missing_from_profile,)
+            selection_list.clear_options()
+            selection_list.add_option((
+                self.entry.missing_from_profile,
+                self.entry.missing_from_profile,
+                True,
+            ))
+            self.decision_screen.decisions[self.entry] = (target, default_dests)
+        else:
+            selection_list.disabled = False
+            if isinstance(self.entry, ColumnMismatch):
+                default_dests = tuple(
+                    prof for prof, attrs in self.entry.values_by_profile
+                    if attrs != target
+                )
+            else:
+                default_dests = (self.entry.missing_from_profile,)
+                
+            selection_list.clear_options()
+            dest_profiles = list(self.decision_screen.profile_names) if isinstance(self.entry, ColumnMismatch) else [self.entry.missing_from_profile]
+            for p in dest_profiles:
+                selection_list.add_option((p, p, p in default_dests))
+                
+            self.decision_screen.decisions[self.entry] = (target, default_dests)
+
+    def handle_selection_change(self, selected_items: list[str]) -> None:
+        """Handle selected profiles changes from the selection list."""
+        decision = self.decision_screen.decisions.get(self.entry)
+        if decision:
+            target, _ = decision
+            self.decision_screen.decisions[self.entry] = (target, tuple(selected_items))
