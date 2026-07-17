@@ -15,6 +15,7 @@ from schema_comparator.compare.models import (
 )
 from schema_comparator.tui.decision_screen import DecisionScreen
 from schema_comparator.config.models import ConnectionProfile
+from schema_comparator.compare.consolidation import TableAction
 
 
 def _sample_entries() -> tuple:
@@ -226,7 +227,9 @@ async def test_decision_screen_no_resolutions_notifies_warning() -> None:
             await pilot.pause()
             
             # Also set the MissingTable (dbo.logs) decision to Ignore
-            screen.decisions[entries[2]] = (None, ())
+            from schema_comparator.tui.decision_screen import MergedMissingTable
+            merged_key = next(k for k in screen.decisions if isinstance(k, MergedMissingTable))
+            screen.decisions[merged_key] = (None, ())
             
             # Mock notify
             app.notify = MagicMock()
@@ -298,14 +301,17 @@ async def test_decision_screen_renders_missing_table_card_with_create_option() -
             from schema_comparator.tui.decision_screen import ColumnResolutionWidget
             cards = list(screen.query(ColumnResolutionWidget))
             assert len(cards) == 1
-            assert cards[0].entry == entries[2]  # the MissingTable entry
+            # The widget entry is now a MergedMissingTable (same table identity)
+            from schema_comparator.tui.decision_screen import MergedMissingTable
+            assert isinstance(cards[0].entry, MergedMissingTable)
+            assert cards[0].entry.qualified_name == entries[2].qualified_name
             
-            # Verify a RadioSet with 2 options is rendered (1 source profile + ignore)
+            # Verify a RadioSet with create, delete and ignore options
             from textual.widgets import RadioSet
             radio_sets = list(cards[0].query(RadioSet))
             assert len(radio_sets) == 1
             assert radio_sets[0].disabled is False
-            assert len(radio_sets[0].children) == 2  # "Crear con def de profileA" + "Ignorar"
+            assert len(radio_sets[0].children) == 3
             
             # Verify a SelectionList IS rendered (for choosing destination profile)
             from textual.widgets import SelectionList
@@ -314,6 +320,153 @@ async def test_decision_screen_renders_missing_table_card_with_create_option() -
             assert sel_lists[0].disabled is False
             
             # Verify the decision defaults to creating from profileA
-            dec = screen.decisions[entries[2]]
+            from schema_comparator.tui.decision_screen import MergedMissingTable
+            merged_key = next(k for k in screen.decisions if isinstance(k, MergedMissingTable))
+            dec = screen.decisions[merged_key]
             assert dec[0] == "profileA"  # source profile
             assert "profileB" in dec[1]  # destination profile
+
+
+@pytest.mark.asyncio
+async def test_decision_screen_generates_drop_table_sql() -> None:
+    entries = _sample_entries()
+    profiles = _sample_profiles()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        app = DummyApp(entries, profiles, tmp_path)
+
+        async with app.run_test() as pilot:
+            screen = app.screen
+            assert isinstance(screen, DecisionScreen)
+
+            list_view = screen.query_one("#findings-list", ListView)
+            list_view.focus()
+            list_view.index = 0
+            await pilot.press("enter")
+            await pilot.pause()
+
+            radio_set = screen.query_one(RadioSet)
+            radio_set.children[1].value = True
+            await pilot.pause()
+            await pilot.press("g")
+            await pilot.pause()
+
+        content = (tmp_path / "scripts-db" / "profileA.sql").read_text(encoding="utf-8")
+        assert "DROP TABLE [dbo].[logs];" in content
+        from schema_comparator.tui.decision_screen import MergedMissingTable
+        merged_key = next(k for k in screen.decisions if isinstance(k, MergedMissingTable))
+        assert screen.decisions[merged_key] == (TableAction.DROP, ("profileA",))
+
+
+# ---------------------------------------------------------------------------
+# Regression: multi-profile missing table – single consolidated decision
+# ---------------------------------------------------------------------------
+
+def _three_profile_missing_table_entries():
+    """Simulates engine output for a table present in A, absent from B and C."""
+    attr = ColumnAttributes(
+        data_type="int",
+        character_maximum_length=None,
+        numeric_precision=None,
+        numeric_scale=None,
+        is_nullable=False,
+    )
+    named_col = NamedColumnAttributes(name="id", attributes=attr)
+    present_cols = (("profileA", (named_col,)),)
+    entry_b = MissingTable(
+        schema_name="dbo",
+        table_name="logs",
+        missing_from_profile="profileB",
+        present_columns=present_cols,
+    )
+    entry_c = MissingTable(
+        schema_name="dbo",
+        table_name="logs",
+        missing_from_profile="profileC",
+        present_columns=present_cols,
+    )
+    return entry_b, entry_c
+
+
+def _three_profiles():
+    return (
+        ConnectionProfile(name="profileA", connection_string="Database=db_a;"),
+        ConnectionProfile(name="profileB", connection_string="Database=db_b;"),
+        ConnectionProfile(name="profileC", connection_string="Database=db_c;"),
+    )
+
+
+@pytest.mark.asyncio
+async def test_multiprofile_missing_table_shows_single_decision_card() -> None:
+    """Una tabla ausente en 2 perfiles (B, C) debe generar UNA sola tarjeta de decisión."""
+    entries = _three_profile_missing_table_entries()
+    profiles = _three_profiles()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        app = DummyApp(entries, profiles, Path(tmp_dir))
+
+        async with app.run_test() as pilot:
+            screen = app.screen
+            assert isinstance(screen, DecisionScreen)
+
+            # El listado tiene UNA entrada (dbo.logs)
+            list_view = screen.query_one("#findings-list", ListView)
+            assert len(list_view.children) == 1
+
+            # Hay UN SOLO decision dict entry para la tabla
+            assert len(screen.decisions) == 1
+
+            # La decisión por defecto incluye AMBOS perfiles ausentes como destino
+            (target, dests) = list(screen.decisions.values())[0]
+            assert target == "profileA"
+            assert set(dests) == {"profileB", "profileC"}
+
+            # Abrir la tarjeta
+            list_view.focus()
+            list_view.index = 0
+            await pilot.press("enter")
+            await pilot.pause()
+
+            from schema_comparator.tui.decision_screen import ColumnResolutionWidget
+            cards = list(screen.query(ColumnResolutionWidget))
+            # Solo UNA tarjeta para los dos MissingTable
+            assert len(cards) == 1
+
+
+@pytest.mark.asyncio
+async def test_multiprofile_missing_table_drop_only_targets_present_profile() -> None:
+    """Al elegir DROP, solo se genera acción para el perfil donde existe la tabla (A);
+    los perfiles donde ya falta (B, C) no deben aparecer en ninguna resolución."""
+    entries = _three_profile_missing_table_entries()
+    profiles = _three_profiles()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        app = DummyApp(entries, profiles, tmp_path)
+
+        async with app.run_test() as pilot:
+            screen = app.screen
+            assert isinstance(screen, DecisionScreen)
+
+            # Fijar decisión DROP manualmente en el entry consolidado
+            merged_key = list(screen.decisions.keys())[0]
+            screen.decisions[merged_key] = (TableAction.DROP, ("profileA",))
+
+            await pilot.press("g")
+            await pilot.pause()
+
+        scripts_dir = tmp_path / "scripts-db"
+        assert scripts_dir.exists(), "No se generaron scripts SQL"
+
+        a_sql = (scripts_dir / "profileA.sql").read_text(encoding="utf-8")
+        assert "DROP TABLE [dbo].[logs];" in a_sql
+
+        # B y C NO deben tener ninguna instrucción sobre logs
+        for profile in ("profileB", "profileC"):
+            pf = scripts_dir / f"{profile}.sql"
+            if pf.exists():
+                content = pf.read_text(encoding="utf-8")
+                assert "logs" not in content.lower(), (
+                    f"{profile}.sql no debe contener referencias a 'logs' (tabla ya ausente)"
+                )

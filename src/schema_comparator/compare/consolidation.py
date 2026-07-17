@@ -3,6 +3,7 @@
 import re
 import datetime
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from schema_comparator.compare.models import ColumnAttributes, NamedColumnAttributes
 from schema_comparator.config.models import ConnectionProfile
@@ -27,6 +28,21 @@ class TableResolution:
     schema_name: str
     table_name: str
     columns: tuple[NamedColumnAttributes, ...]
+    profiles_to_update: tuple[str, ...]
+
+
+class TableAction(str, Enum):
+    """Actions available for a table-level consolidation decision."""
+
+    DROP = "drop"
+
+
+@dataclass(frozen=True, slots=True)
+class TableDeletionResolution:
+    """Represents a decision to remove a table from selected profiles."""
+
+    schema_name: str
+    table_name: str
     profiles_to_update: tuple[str, ...]
 
 
@@ -61,6 +77,7 @@ def generate_ddl_for_profile(
     profile: ConnectionProfile,
     timestamp: datetime.datetime | None = None,
     table_resolutions: list[TableResolution] | None = None,
+    table_deletions: list[TableDeletionResolution] | None = None,
 ) -> str:
     """Generate transactional, idempotent, enterprise-grade T-SQL scripts for a profile."""
     ts = timestamp or datetime.datetime.now()
@@ -104,6 +121,24 @@ def generate_ddl_for_profile(
                 f"{col_list}\n"
                 f"        );\n"
                 f"        PRINT 'Tabla [{tres.schema_name}].[{tres.table_name}] creada con exito.';\n"
+                f"    END"
+            )
+            lines.append(sql)
+            statements_added = True
+
+    # DROP TABLE statements (tables selected for removal from this profile)
+    for deletion in (table_deletions or []):
+        if profile.name in deletion.profiles_to_update:
+            sql = (
+                f"    IF EXISTS (\n"
+                f"        SELECT 1\n"
+                f"        FROM sys.objects o\n"
+                f"        JOIN sys.schemas s ON o.schema_id = s.schema_id\n"
+                f"        WHERE s.name = '{deletion.schema_name}' AND o.name = '{deletion.table_name}' AND o.type = 'U'\n"
+                f"    )\n"
+                f"    BEGIN\n"
+                f"        DROP TABLE [{deletion.schema_name}].[{deletion.table_name}];\n"
+                f"        PRINT 'Tabla [{deletion.schema_name}].[{deletion.table_name}] eliminada con exito.';\n"
                 f"    END"
             )
             lines.append(sql)
@@ -177,6 +212,7 @@ def write_sql_scripts(
     profiles: list[ConnectionProfile],
     timestamp: datetime.datetime | None = None,
     table_resolutions: list[TableResolution] | None = None,
+    table_deletions: list[TableDeletionResolution] | None = None,
 ) -> list[str]:
     """Create the 'scripts-db' directory and write transactional DDL files for all affected profiles."""
     root_path = Path(repo_root)
@@ -192,6 +228,8 @@ def write_sql_scripts(
         all_profiles_names.update(res.profiles_to_update)
     for tres in (table_resolutions or []):
         all_profiles_names.update(tres.profiles_to_update)
+    for deletion in (table_deletions or []):
+        all_profiles_names.update(deletion.profiles_to_update)
         
     written_files = []
     for profile_name in sorted(all_profiles_names):
@@ -201,7 +239,11 @@ def write_sql_scripts(
             ConnectionProfile(name=profile_name, connection_string=f"Database={profile_name};")
         )
         ddl = generate_ddl_for_profile(
-            resolutions, profile, timestamp=ts, table_resolutions=table_resolutions
+            resolutions,
+            profile,
+            timestamp=ts,
+            table_resolutions=table_resolutions,
+            table_deletions=table_deletions,
         )
         safe_profile = Path(profile_name).name
         file_path = output_dir / f"{safe_profile}.sql"

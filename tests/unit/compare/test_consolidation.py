@@ -6,6 +6,7 @@ from pathlib import Path
 
 from schema_comparator.compare.consolidation import (
     ColumnResolution,
+    TableDeletionResolution,
     TableResolution,
     format_sql_column_definition,
     generate_ddl_for_profile,
@@ -215,6 +216,25 @@ def test_generate_ddl_for_profile_missing_table() -> None:
     assert "[id] int NOT NULL" in ddl_b
     assert "[name] varchar(150) NULL" in ddl_b
     assert "Tabla [dbo].[products] creada con exito." in ddl_b
+    assert "COMMIT TRANSACTION;" in ddl_b
+
+
+def test_generate_ddl_for_profile_table_deletion() -> None:
+    deletion = TableDeletionResolution(
+        schema_name="dbo",
+        table_name="legacy_products",
+        profiles_to_update=("profileB",),
+    )
+
+    ts = datetime.datetime(2026, 7, 14, 12, 0, 0)
+    profile_b = ConnectionProfile(name="profileB", connection_string="Database=real_db_b;")
+    ddl_b = generate_ddl_for_profile(
+        [], profile_b, timestamp=ts, table_deletions=[deletion]
+    )
+
+    assert "IF EXISTS (" in ddl_b
+    assert "DROP TABLE [dbo].[legacy_products];" in ddl_b
+    assert "Tabla [dbo].[legacy_products] eliminada con exito." in ddl_b
     assert "COMMIT TRANSACTION;" in ddl_b
 
 
