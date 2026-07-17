@@ -6,6 +6,7 @@ from pathlib import Path
 
 from schema_comparator.compare.consolidation import (
     ColumnResolution,
+    ColumnDeletionResolution,
     TableDeletionResolution,
     TableResolution,
     format_sql_column_definition,
@@ -236,6 +237,54 @@ def test_generate_ddl_for_profile_table_deletion() -> None:
     assert "DROP TABLE [dbo].[legacy_products];" in ddl_b
     assert "Tabla [dbo].[legacy_products] eliminada con exito." in ddl_b
     assert "COMMIT TRANSACTION;" in ddl_b
+
+
+def test_generate_ddl_for_profile_column_deletion() -> None:
+    deletion = ColumnDeletionResolution(
+        schema_name="dbo",
+        table_name="legacy_products",
+        column_name="obsolete_code",
+        profiles_to_update=("profileB",),
+    )
+
+    ts = datetime.datetime(2026, 7, 14, 12, 0, 0)
+    profile_b = ConnectionProfile(name="profileB", connection_string="Database=real_db_b;")
+    ddl_b = generate_ddl_for_profile(
+        [], profile_b, timestamp=ts, column_deletions=[deletion]
+    )
+
+    assert "FROM sys.columns c" in ddl_b
+    assert "JOIN sys.objects o ON c.object_id = o.object_id" in ddl_b
+    assert "JOIN sys.schemas s ON o.schema_id = s.schema_id" in ddl_b
+    assert "DROP COLUMN [obsolete_code];" in ddl_b
+    assert "Columna [obsolete_code] eliminada con exito de [dbo].[legacy_products]." in ddl_b
+    assert "BEGIN TRANSACTION;" in ddl_b
+    assert "COMMIT TRANSACTION;" in ddl_b
+
+
+def test_write_sql_scripts_with_column_deletion_includes_affected_profile() -> None:
+    deletion = ColumnDeletionResolution(
+        schema_name="dbo",
+        table_name="legacy_products",
+        column_name="obsolete_code",
+        profiles_to_update=("profileB",),
+    )
+
+    ts = datetime.datetime(2026, 7, 14, 12, 0, 0)
+    profile_a = ConnectionProfile(name="profileA", connection_string="Database=real_db_a;")
+    profile_b = ConnectionProfile(name="profileB", connection_string="Database=real_db_b;")
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        written_files = write_sql_scripts(
+            [], tmp_path, [profile_a, profile_b], timestamp=ts,
+            column_deletions=[deletion],
+        )
+
+        assert len(written_files) == 1
+        file_b = tmp_path / "scripts-db" / "profileB.sql"
+        assert file_b.exists()
+        assert "DROP COLUMN [obsolete_code];" in file_b.read_text(encoding="utf-8")
 
 
 def test_write_sql_scripts_with_table_resolution() -> None:

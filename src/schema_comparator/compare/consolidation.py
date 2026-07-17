@@ -46,6 +46,22 @@ class TableDeletionResolution:
     profiles_to_update: tuple[str, ...]
 
 
+class ColumnAction(str, Enum):
+    """Actions available for a column-level consolidation decision."""
+
+    DROP = "drop"
+
+
+@dataclass(frozen=True, slots=True)
+class ColumnDeletionResolution:
+    """Represents a decision to remove a column from selected profiles."""
+
+    schema_name: str
+    table_name: str
+    column_name: str
+    profiles_to_update: tuple[str, ...]
+
+
 def extract_database_name(connection_string: str) -> str | None:
     """Extract the database name (Initial Catalog or Database) from a SQL Server connection string."""
     pattern = re.compile(r'(?:database|initial catalog|db)\s*=\s*([^;]+)', re.IGNORECASE)
@@ -78,6 +94,7 @@ def generate_ddl_for_profile(
     timestamp: datetime.datetime | None = None,
     table_resolutions: list[TableResolution] | None = None,
     table_deletions: list[TableDeletionResolution] | None = None,
+    column_deletions: list[ColumnDeletionResolution] | None = None,
 ) -> str:
     """Generate transactional, idempotent, enterprise-grade T-SQL scripts for a profile."""
     ts = timestamp or datetime.datetime.now()
@@ -139,6 +156,25 @@ def generate_ddl_for_profile(
                 f"    BEGIN\n"
                 f"        DROP TABLE [{deletion.schema_name}].[{deletion.table_name}];\n"
                 f"        PRINT 'Tabla [{deletion.schema_name}].[{deletion.table_name}] eliminada con exito.';\n"
+                f"    END"
+            )
+            lines.append(sql)
+            statements_added = True
+
+    # DROP COLUMN statements (columns selected for removal from this profile)
+    for deletion in (column_deletions or []):
+        if profile.name in deletion.profiles_to_update:
+            sql = (
+                f"    IF EXISTS (\n"
+                f"        SELECT 1\n"
+                f"        FROM sys.columns c\n"
+                f"        JOIN sys.objects o ON c.object_id = o.object_id\n"
+                f"        JOIN sys.schemas s ON o.schema_id = s.schema_id\n"
+                f"        WHERE s.name = '{deletion.schema_name}' AND o.name = '{deletion.table_name}' AND c.name = '{deletion.column_name}'\n"
+                f"    )\n"
+                f"    BEGIN\n"
+                f"        ALTER TABLE [{deletion.schema_name}].[{deletion.table_name}] DROP COLUMN [{deletion.column_name}];\n"
+                f"        PRINT 'Columna [{deletion.column_name}] eliminada con exito de [{deletion.schema_name}].[{deletion.table_name}].';\n"
                 f"    END"
             )
             lines.append(sql)
@@ -213,6 +249,7 @@ def write_sql_scripts(
     timestamp: datetime.datetime | None = None,
     table_resolutions: list[TableResolution] | None = None,
     table_deletions: list[TableDeletionResolution] | None = None,
+    column_deletions: list[ColumnDeletionResolution] | None = None,
 ) -> list[str]:
     """Create the 'scripts-db' directory and write transactional DDL files for all affected profiles."""
     root_path = Path(repo_root)
@@ -230,6 +267,8 @@ def write_sql_scripts(
         all_profiles_names.update(tres.profiles_to_update)
     for deletion in (table_deletions or []):
         all_profiles_names.update(deletion.profiles_to_update)
+    for deletion in (column_deletions or []):
+        all_profiles_names.update(deletion.profiles_to_update)
         
     written_files = []
     for profile_name in sorted(all_profiles_names):
@@ -244,6 +283,7 @@ def write_sql_scripts(
             timestamp=ts,
             table_resolutions=table_resolutions,
             table_deletions=table_deletions,
+            column_deletions=column_deletions,
         )
         safe_profile = Path(profile_name).name
         file_path = output_dir / f"{safe_profile}.sql"

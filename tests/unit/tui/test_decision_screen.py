@@ -15,7 +15,7 @@ from schema_comparator.compare.models import (
 )
 from schema_comparator.tui.decision_screen import DecisionScreen
 from schema_comparator.config.models import ConnectionProfile
-from schema_comparator.compare.consolidation import TableAction
+from schema_comparator.compare.consolidation import ColumnAction, TableAction
 
 
 def _sample_entries() -> tuple:
@@ -140,10 +140,10 @@ async def test_decision_screen_updates_decision_on_radio_change() -> None:
             # Verify RadioSets exist in right panel (one for each column)
             radio_sets = list(screen.query(RadioSet))
             assert len(radio_sets) == 2
-            assert len(radio_sets[0].children) == 3  # Two attrs options + 1 ignore option
+            assert len(radio_sets[0].children) == 4  # Two attrs options + drop + ignore
             
             # Select "Ignore" (index 2) on the first column card
-            radio_sets[0].children[2].value = True
+            radio_sets[0].children[3].value = True
             await pilot.pause()
             
             # Check first selection list is disabled
@@ -222,8 +222,8 @@ async def test_decision_screen_no_resolutions_notifies_warning() -> None:
             radio_sets = list(screen.query(RadioSet))
             assert len(radio_sets) == 2
             
-            radio_sets[0].children[2].value = True  # Ignore
-            radio_sets[1].children[1].value = True  # Ignore
+            radio_sets[0].children[3].value = True  # Ignore
+            radio_sets[1].children[2].value = True  # Ignore
             await pilot.pause()
             
             # Also set the MissingTable (dbo.logs) decision to Ignore
@@ -357,6 +357,69 @@ async def test_decision_screen_generates_drop_table_sql() -> None:
         from schema_comparator.tui.decision_screen import MergedMissingTable
         merged_key = next(k for k in screen.decisions if isinstance(k, MergedMissingTable))
         assert screen.decisions[merged_key] == (TableAction.DROP, ("profileA",))
+
+
+@pytest.mark.asyncio
+async def test_missing_column_drop_targets_only_present_profiles_and_generates_sql() -> None:
+    entries = _sample_entries()
+    profiles = _sample_profiles()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        app = DummyApp(entries, profiles, tmp_path)
+
+        async with app.run_test() as pilot:
+            screen = app.screen
+            list_view = screen.query_one("#findings-list", ListView)
+            list_view.focus()
+            list_view.index = 1
+            await pilot.press("enter")
+            await pilot.pause()
+
+            radio_sets = list(screen.query(RadioSet))
+            selection_lists = list(screen.query(SelectionList))
+            radio_sets[1].children[1].value = True
+            await pilot.pause()
+
+            assert selection_lists[1].disabled is False
+            assert len(selection_lists[1].options) == 1
+            assert selection_lists[1].selected == ["profileA"]
+            assert screen.decisions[entries[1]] == (ColumnAction.DROP, ("profileA",))
+
+            radio_sets[0].children[3].value = True
+            await pilot.pause()
+            await pilot.press("g")
+            await pilot.pause()
+
+        content = (tmp_path / "scripts-db" / "profileA.sql").read_text(encoding="utf-8")
+        assert "DROP COLUMN [age];" in content
+        assert "ALTER COLUMN [email]" not in content
+
+
+@pytest.mark.asyncio
+async def test_column_mismatch_drop_defaults_to_all_present_profiles() -> None:
+    mismatch, _, _ = _sample_entries()
+    profiles = _sample_profiles()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        app = DummyApp((mismatch,), profiles, Path(tmp_dir))
+
+        async with app.run_test() as pilot:
+            screen = app.screen
+            list_view = screen.query_one("#findings-list", ListView)
+            list_view.focus()
+            list_view.index = 0
+            await pilot.press("enter")
+            await pilot.pause()
+
+            radio_set = screen.query_one(RadioSet)
+            radio_set.children[2].value = True
+            await pilot.pause()
+
+            selection_list = screen.query_one(SelectionList)
+            assert len(selection_list.options) == 2
+            assert selection_list.selected == ["profileA", "profileB"]
+            assert screen.decisions[mismatch] == (ColumnAction.DROP, ("profileA", "profileB"))
 
 
 # ---------------------------------------------------------------------------

@@ -11,7 +11,7 @@ from textual.widgets import Button, Label, ListItem, ListView, RadioButton, Radi
 from schema_comparator.compare.models import ColumnAttributes, ColumnMismatch, DiffEntry, MissingColumn, MissingTable, NamedColumnAttributes
 from schema_comparator.report.attributes import format_attributes
 from schema_comparator.config.models import ConnectionProfile
-from schema_comparator.compare.consolidation import TableAction
+from schema_comparator.compare.consolidation import ColumnAction, TableAction
 
 
 @dataclass(frozen=True)
@@ -268,15 +268,17 @@ class DecisionScreen(Screen):
 
     def action_generate_sql(self) -> None:
         from schema_comparator.compare.consolidation import (
+            ColumnDeletionResolution,
             ColumnResolution,
             TableDeletionResolution,
             TableResolution,
             write_sql_scripts,
         )
-        
+
         resolutions = []
         table_resolutions = []
         table_deletions = []
+        column_deletions = []
         for entry, (target, dests) in self.decisions.items():
             if target is not None and dests:
                 schema, table = entry.qualified_name
@@ -322,26 +324,47 @@ class DecisionScreen(Screen):
                             )
                 else:
                     is_missing = isinstance(entry, MissingColumn)
-                    resolutions.append(
-                        ColumnResolution(
-                            schema_name=schema,
-                            table_name=table,
-                            column_name=entry.column_name,
-                            target_attributes=target,
-                            profiles_to_update=tuple(dests),
-                            is_missing_column=is_missing
+                    if target is ColumnAction.DROP:
+                        present_profiles = {
+                            profile_name
+                            for profile_name, _ in (
+                                entry.present_attributes
+                                if isinstance(entry, MissingColumn)
+                                else entry.values_by_profile
+                            )
+                        }
+                        actual_dests = tuple(d for d in dests if d in present_profiles)
+                        if actual_dests:
+                            column_deletions.append(
+                                ColumnDeletionResolution(
+                                    schema_name=schema,
+                                    table_name=table,
+                                    column_name=entry.column_name,
+                                    profiles_to_update=actual_dests,
+                                )
+                            )
+                    else:
+                        resolutions.append(
+                            ColumnResolution(
+                                schema_name=schema,
+                                table_name=table,
+                                column_name=entry.column_name,
+                                target_attributes=target,
+                                profiles_to_update=tuple(dests),
+                                is_missing_column=is_missing,
+                            )
                         )
-                    )
-                
-        if not resolutions and not table_resolutions and not table_deletions:
+
+        if not resolutions and not table_resolutions and not table_deletions and not column_deletions:
             self.app.notify("No se seleccionó ninguna corrección para generar SQL.", severity="warning")
             return
-            
+
         try:
             generated_files = write_sql_scripts(
                 resolutions, self.repo_root, list(self.profiles),
                 table_resolutions=table_resolutions,
                 table_deletions=table_deletions,
+                column_deletions=column_deletions,
             )
             self.dismiss(generated_files)
         except Exception as exc:
@@ -406,6 +429,7 @@ class ColumnResolutionWidget(Container):
             for attrs, profs in attr_to_profiles.items():
                 label = f"{format_attributes(attrs)}  (ej. en: {', '.join(profs)})"
                 options.append((attrs, label))
+            options.append((ColumnAction.DROP, "Eliminar columna de perfiles donde existe"))
             options.append((None, "Ignorar discrepancia (no generar cambios)"))
             
         elif isinstance(self.entry, MissingColumn):
@@ -416,6 +440,7 @@ class ColumnResolutionWidget(Container):
             for attrs, profs in attr_to_profiles.items():
                 label = f"Agregar como {format_attributes(attrs)}  (copiar de: {', '.join(profs)})"
                 options.append((attrs, label))
+            options.append((ColumnAction.DROP, "Eliminar columna de perfiles donde existe"))
             options.append((None, "No agregar (Ignorar)"))
             
         elif isinstance(self.entry, (MissingTable, MergedMissingTable)):
@@ -519,8 +544,22 @@ class ColumnResolutionWidget(Container):
         yield radio_set
         
         # SelectionList
-        yield Label("[bold]Aplicar corrección en:[/bold] (Presiona [Espacio] para marcar/desmarcar)", classes="dest-label")
-        dest_profiles = list(self.decision_screen.profile_names) if isinstance(self.entry, ColumnMismatch) else [self.entry.missing_from_profile]
+        is_drop = target_attrs is ColumnAction.DROP
+        yield Label(
+            "[bold]Eliminar columna en:[/bold]" if is_drop else "[bold]Aplicar corrección en:[/bold] (Presiona [Espacio] para marcar/desmarcar)",
+            classes="dest-label",
+        )
+        if is_drop:
+            dest_profiles = [
+                profile_name
+                for profile_name, _ in (
+                    self.entry.present_attributes
+                    if isinstance(self.entry, MissingColumn)
+                    else self.entry.values_by_profile
+                )
+            ]
+        else:
+            dest_profiles = list(self.decision_screen.profile_names) if isinstance(self.entry, ColumnMismatch) else [self.entry.missing_from_profile]
         
         selection_list = SelectionList(classes="profile-selection-list")
         for p in dest_profiles:
@@ -575,6 +614,20 @@ class ColumnResolutionWidget(Container):
                     profile_name,
                     profile_name in default_dests,
                 ))
+            self.decision_screen.decisions[self.entry] = (target, default_dests)
+        elif target is ColumnAction.DROP:
+            selection_list.disabled = False
+            default_dests = tuple(
+                profile_name
+                for profile_name, _ in (
+                    self.entry.present_attributes
+                    if isinstance(self.entry, MissingColumn)
+                    else self.entry.values_by_profile
+                )
+            )
+            selection_list.clear_options()
+            for profile_name in default_dests:
+                selection_list.add_option((profile_name, profile_name, True))
             self.decision_screen.decisions[self.entry] = (target, default_dests)
         else:
             selection_list.disabled = False
