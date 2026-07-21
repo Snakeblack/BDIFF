@@ -13,7 +13,7 @@ def extract_database_name(connection_string: str) -> str | None:
     pattern = re.compile(r'(?:database|initial catalog|db)\s*=\s*([^;]+)', re.IGNORECASE)
     match = pattern.search(connection_string)
     if match:
-        return match.group(1).strip()
+        return match.group(1).strip().strip("'\"[]").strip()
     return None
 
 
@@ -104,6 +104,8 @@ def generate_ddl_for_profile(
             table_esc = _escape_ident(tres.table_name)
             schema_lit = _escape_literal(tres.schema_name)
             table_lit = _escape_literal(tres.table_name)
+            schema_print = _escape_literal(schema_esc)
+            table_print = _escape_literal(table_esc)
 
             col_defs = []
             for ncol in tres.columns:
@@ -123,18 +125,23 @@ def generate_ddl_for_profile(
                 f"        CREATE TABLE [{schema_esc}].[{table_esc}] (\n"
                 f"{col_list}\n"
                 f"        );\n"
-                f"        PRINT 'Tabla [{schema_esc}].[{table_esc}] creada con exito.';\n"
+                f"        PRINT 'Tabla [{schema_print}].[{table_print}] creada con exito.';\n"
                 f"    END"
             )
             lines.append(sql)
             statements_added = True
 
-    for deletion in (table_deletions or []):
+    for idx, deletion in enumerate(table_deletions or []):
         if profile.name in deletion.profiles_to_update:
             schema_esc = _escape_ident(deletion.schema_name)
             table_esc = _escape_ident(deletion.table_name)
             schema_lit = _escape_literal(deletion.schema_name)
             table_lit = _escape_literal(deletion.table_name)
+            schema_lit_esc = _escape_ident(schema_lit)
+            table_lit_esc = _escape_ident(table_lit)
+            schema_print = _escape_literal(schema_esc)
+            table_print = _escape_literal(table_esc)
+            var_suffix = f"t_{idx}"
 
             sql = (
                 f"    IF EXISTS (\n"
@@ -144,14 +151,23 @@ def generate_ddl_for_profile(
                 f"        WHERE s.name = '{schema_lit}' AND o.name = '{table_lit}' AND o.type = 'U'\n"
                 f"    )\n"
                 f"    BEGIN\n"
+                f"        DECLARE @fk_sql_{var_suffix} NVARCHAR(MAX) = N'';\n"
+                f"        SELECT @fk_sql_{var_suffix} += N'ALTER TABLE ' + QUOTENAME(s.name) + N'.' + QUOTENAME(o.name) + N' DROP CONSTRAINT ' + QUOTENAME(fk.name) + N';' + CHAR(13)\n"
+                f"        FROM sys.foreign_keys fk\n"
+                f"        JOIN sys.objects o ON fk.parent_object_id = o.object_id\n"
+                f"        JOIN sys.schemas s ON o.schema_id = s.schema_id\n"
+                f"        WHERE fk.referenced_object_id = OBJECT_ID(N'[{schema_lit_esc}].[{table_lit_esc}]')\n"
+                f"           OR fk.parent_object_id = OBJECT_ID(N'[{schema_lit_esc}].[{table_lit_esc}]');\n"
+                f"        IF @fk_sql_{var_suffix} <> N'' EXEC sp_executesql @fk_sql_{var_suffix};\n"
+                f"\n"
                 f"        DROP TABLE [{schema_esc}].[{table_esc}];\n"
-                f"        PRINT 'Tabla [{schema_esc}].[{table_esc}] eliminada con exito.';\n"
+                f"        PRINT 'Tabla [{schema_print}].[{table_print}] eliminada con exito.';\n"
                 f"    END"
             )
             lines.append(sql)
             statements_added = True
 
-    for deletion in (column_deletions or []):
+    for idx, deletion in enumerate(column_deletions or []):
         if profile.name in deletion.profiles_to_update:
             schema_esc = _escape_ident(deletion.schema_name)
             table_esc = _escape_ident(deletion.table_name)
@@ -159,6 +175,12 @@ def generate_ddl_for_profile(
             schema_lit = _escape_literal(deletion.schema_name)
             table_lit = _escape_literal(deletion.table_name)
             col_lit = _escape_literal(deletion.column_name)
+            schema_lit_esc = _escape_ident(schema_lit)
+            table_lit_esc = _escape_ident(table_lit)
+            schema_print = _escape_literal(schema_esc)
+            table_print = _escape_literal(table_esc)
+            col_print = _escape_literal(col_esc)
+            var_suffix = f"c_{idx}"
 
             sql = (
                 f"    IF EXISTS (\n"
@@ -169,8 +191,76 @@ def generate_ddl_for_profile(
                 f"        WHERE s.name = '{schema_lit}' AND o.name = '{table_lit}' AND c.name = '{col_lit}'\n"
                 f"    )\n"
                 f"    BEGIN\n"
+                f"        DECLARE @col_fk_sql_{var_suffix} NVARCHAR(MAX) = N'';\n"
+                f"        SELECT @col_fk_sql_{var_suffix} += N'ALTER TABLE ' + QUOTENAME(s.name) + N'.' + QUOTENAME(o.name) + N' DROP CONSTRAINT ' + QUOTENAME(fk.name) + N';' + CHAR(13)\n"
+                f"        FROM (\n"
+                f"            SELECT DISTINCT fk.object_id, fk.name, fk.parent_object_id\n"
+                f"            FROM sys.foreign_keys fk\n"
+                f"            JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id\n"
+                f"            JOIN sys.columns c ON ((c.object_id = fkc.parent_object_id AND c.column_id = fkc.parent_column_id) OR (c.object_id = fkc.referenced_object_id AND c.column_id = fkc.referenced_column_id))\n"
+                f"            WHERE (fkc.parent_object_id = OBJECT_ID(N'[{schema_lit_esc}].[{table_lit_esc}]') OR fkc.referenced_object_id = OBJECT_ID(N'[{schema_lit_esc}].[{table_lit_esc}]'))\n"
+                f"              AND c.object_id = OBJECT_ID(N'[{schema_lit_esc}].[{table_lit_esc}]')\n"
+                f"              AND c.name = '{col_lit}'\n"
+                f"        ) fk\n"
+                f"        JOIN sys.objects o ON fk.parent_object_id = o.object_id\n"
+                f"        JOIN sys.schemas s ON o.schema_id = s.schema_id;\n"
+                f"        IF @col_fk_sql_{var_suffix} <> N'' EXEC sp_executesql @col_fk_sql_{var_suffix};\n"
+                f"\n"
+                f"        DECLARE @key_sql_{var_suffix} NVARCHAR(MAX) = N'';\n"
+                f"        SELECT @key_sql_{var_suffix} += N'ALTER TABLE ' + QUOTENAME(s.name) + N'.' + QUOTENAME(t.name) + N' DROP CONSTRAINT ' + QUOTENAME(kc.name) + N';' + CHAR(13)\n"
+                f"        FROM sys.key_constraints kc\n"
+                f"        JOIN sys.tables t ON kc.parent_object_id = t.object_id\n"
+                f"        JOIN sys.schemas s ON t.schema_id = s.schema_id\n"
+                f"        JOIN sys.index_columns ic ON kc.parent_object_id = ic.object_id AND kc.unique_index_id = ic.index_id\n"
+                f"        JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id\n"
+                f"        WHERE kc.parent_object_id = OBJECT_ID(N'[{schema_lit_esc}].[{table_lit_esc}]')\n"
+                f"          AND c.name = '{col_lit}';\n"
+                f"        IF @key_sql_{var_suffix} <> N'' EXEC sp_executesql @key_sql_{var_suffix};\n"
+                f"\n"
+                f"        DECLARE @idx_sql_{var_suffix} NVARCHAR(MAX) = N'';\n"
+                f"        SELECT @idx_sql_{var_suffix} += N'DROP INDEX ' + QUOTENAME(i.name) + N' ON ' + QUOTENAME(s.name) + N'.' + QUOTENAME(t.name) + N';' + CHAR(13)\n"
+                f"        FROM (\n"
+                f"            SELECT DISTINCT i.object_id, i.name\n"
+                f"            FROM sys.indexes i\n"
+                f"            JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id\n"
+                f"            JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id\n"
+                f"            WHERE i.object_id = OBJECT_ID(N'[{schema_lit_esc}].[{table_lit_esc}]')\n"
+                f"              AND c.name = '{col_lit}'\n"
+                f"              AND i.name IS NOT NULL\n"
+                f"              AND i.is_primary_key = 0\n"
+                f"              AND i.is_unique_constraint = 0\n"
+                f"        ) i\n"
+                f"        JOIN sys.tables t ON i.object_id = t.object_id\n"
+                f"        JOIN sys.schemas s ON t.schema_id = s.schema_id;\n"
+                f"        IF @idx_sql_{var_suffix} <> N'' EXEC sp_executesql @idx_sql_{var_suffix};\n"
+                f"\n"
+                f"        DECLARE @chk_sql_{var_suffix} NVARCHAR(MAX) = N'';\n"
+                f"        SELECT @chk_sql_{var_suffix} += N'ALTER TABLE ' + QUOTENAME(s.name) + N'.' + QUOTENAME(t.name) + N' DROP CONSTRAINT ' + QUOTENAME(cc.name) + N';' + CHAR(13)\n"
+                f"        FROM (\n"
+                f"            SELECT DISTINCT cc.object_id, cc.name, cc.parent_object_id\n"
+                f"            FROM sys.check_constraints cc\n"
+                f"            LEFT JOIN sys.columns c ON cc.parent_object_id = c.object_id AND cc.parent_column_id = c.column_id\n"
+                f"            LEFT JOIN sys.sql_expression_dependencies sed ON cc.object_id = sed.referencing_id AND sed.referenced_id = cc.parent_object_id\n"
+                f"            LEFT JOIN sys.columns c2 ON sed.referenced_id = c2.object_id AND sed.referenced_minor_id = c2.column_id\n"
+                f"            WHERE cc.parent_object_id = OBJECT_ID(N'[{schema_lit_esc}].[{table_lit_esc}]')\n"
+                f"              AND (c.name = '{col_lit}' OR c2.name = '{col_lit}')\n"
+                f"        ) cc\n"
+                f"        JOIN sys.tables t ON cc.parent_object_id = t.object_id\n"
+                f"        JOIN sys.schemas s ON t.schema_id = s.schema_id;\n"
+                f"        IF @chk_sql_{var_suffix} <> N'' EXEC sp_executesql @chk_sql_{var_suffix};\n"
+                f"\n"
+                f"        DECLARE @def_sql_{var_suffix} NVARCHAR(MAX) = N'';\n"
+                f"        SELECT @def_sql_{var_suffix} += N'ALTER TABLE ' + QUOTENAME(s.name) + N'.' + QUOTENAME(t.name) + N' DROP CONSTRAINT ' + QUOTENAME(dc.name) + N';' + CHAR(13)\n"
+                f"        FROM sys.default_constraints dc\n"
+                f"        JOIN sys.tables t ON dc.parent_object_id = t.object_id\n"
+                f"        JOIN sys.schemas s ON t.schema_id = s.schema_id\n"
+                f"        JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id\n"
+                f"        WHERE dc.parent_object_id = OBJECT_ID(N'[{schema_lit_esc}].[{table_lit_esc}]')\n"
+                f"          AND c.name = '{col_lit}';\n"
+                f"        IF @def_sql_{var_suffix} <> N'' EXEC sp_executesql @def_sql_{var_suffix};\n"
+                f"\n"
                 f"        ALTER TABLE [{schema_esc}].[{table_esc}] DROP COLUMN [{col_esc}];\n"
-                f"        PRINT 'Columna [{col_esc}] eliminada con exito de [{schema_esc}].[{table_esc}].';\n"
+                f"        PRINT 'Columna [{col_print}] eliminada con exito de [{schema_print}].[{table_print}].';\n"
                 f"    END"
             )
             lines.append(sql)
@@ -185,6 +275,9 @@ def generate_ddl_for_profile(
             schema_lit = _escape_literal(res.schema_name)
             table_lit = _escape_literal(res.table_name)
             col_lit = _escape_literal(res.column_name)
+            schema_print = _escape_literal(schema_esc)
+            table_print = _escape_literal(table_esc)
+            col_print = _escape_literal(col_esc)
 
             if res.is_missing_column:
                 sql = (
@@ -197,7 +290,7 @@ def generate_ddl_for_profile(
                     f"    )\n"
                     f"    BEGIN\n"
                     f"        ALTER TABLE [{schema_esc}].[{table_esc}] ADD [{col_esc}] {col_def};\n"
-                    f"        PRINT 'Columna [{col_esc}] agregada con exito a [{schema_esc}].[{table_esc}].';\n"
+                    f"        PRINT 'Columna [{col_print}] agregada con exito a [{schema_print}].[{table_print}].';\n"
                     f"    END"
                 )
             else:
@@ -211,7 +304,7 @@ def generate_ddl_for_profile(
                     f"    )\n"
                     f"    BEGIN\n"
                     f"        ALTER TABLE [{schema_esc}].[{table_esc}] ALTER COLUMN [{col_esc}] {col_def};\n"
-                    f"        PRINT 'Columna [{col_esc}] de [{schema_esc}].[{table_esc}] modificada con exito.';\n"
+                    f"        PRINT 'Columna [{col_print}] de [{schema_print}].[{table_print}] modificada con exito.';\n"
                     f"    END"
                 )
             lines.append(sql)
