@@ -4,6 +4,16 @@ Todas las modificaciones destacables de este proyecto se documentarán en este a
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/), y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.4.0] - 2026-07-21
+
+### Añadido
+- Manejo seguro y dinámico de Foreign Keys, restricciones Únicas/Primarias (`sys.key_constraints`), restricciones `CHECK` (`sys.check_constraints`), restricciones por Defecto (`sys.default_constraints`) e Índices (`sys.indexes`) en la generación de scripts DDL de consolidación (`DROP TABLE` y `DROP COLUMN`).
+- Captura de restricciones `CHECK` a nivel de tabla mediante `sys.sql_expression_dependencies`.
+- Quoting seguro T-SQL (`QUOTENAME()`) para identificadores dinámicos y desduplicación `DISTINCT` para evitar sentencias repetidas.
+- Escape de comillas simples (`_escape_literal`) en mensajes `PRINT` de todos los bloques DDL.
+- Limpieza de comillas y corchetes en `extract_database_name`.
+- Pruebas unitarias dedicadas en `tests/unit/sqlserver/test_ddl_renderer_dependencies.py`.
+
 ## [0.3.0] - 2026-07-21
 
 ### Añadido
