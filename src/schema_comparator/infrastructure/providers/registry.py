@@ -77,11 +77,26 @@ def _load_sqlite_provider() -> DatabaseProvider:
     return SqliteProvider()
 
 
+def _load_mysql_provider() -> DatabaseProvider:
+    from schema_comparator.infrastructure.providers.mysql import MySqlProvider
+
+    return MySqlProvider()
+
+
+def _load_mariadb_provider() -> DatabaseProvider:
+    from schema_comparator.infrastructure.providers.mariadb import MariaDbProvider
+
+    return MariaDbProvider()
+
+
 def get_default_registry() -> ProviderRegistry:
     """Return a new ProviderRegistry populated with default built-in provider factories."""
     registry = ProviderRegistry()
     registry.register_factory("sqlserver", _load_sqlserver_provider)
     registry.register_factory("postgresql", _load_postgresql_provider)
     registry.register_factory("sqlite", _load_sqlite_provider)
+    registry.register_factory("mysql", _load_mysql_provider)
+    registry.register_factory("mariadb", _load_mariadb_provider)
     return registry
+
 
