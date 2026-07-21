@@ -1,89 +1,50 @@
-# Roadmap — SQL Server Schema Comparator
+# Roadmap — BDIFF (Schema Drift Comparator)
 
-## Milestone 1 (v1) — Core drift detection, local run
+Este documento refleja el estado real del proyecto y el plan evolutivo hacia una arquitectura modular y multi-motor de bases de datos, detallado en [docs/architecture/analisis-roadmap-multitarget.md](file:///c:/Users/sn4ke/dev/activos/BDIFF/docs/architecture/analisis-roadmap-multitarget.md).
 
-First usable slice. Goal: a developer can run the tool locally against
-configured SQL Server connections and get a report showing table/column
-drift.
+Para ver el desglose detallado de tareas y OpenSpec Changes por fase, consulta [docs/architecture/roadmap-multitarget-changes.md](file:///c:/Users/sn4ke/dev/activos/BDIFF/docs/architecture/roadmap-multitarget-changes.md).
 
-- [x] Connection profile config (multi-database, no hardcoded credentials)
-- [x] Schema extraction via live connection (tables + columns: name, type,
-      size/precision/scale, nullable)
-- [x] N-way comparison engine (union-of-objects baseline diff)
-- [x] Missing-table detection
-- [x] Missing-column detection
-- [x] Type/size/nullability mismatch detection
-- [x] HTML report generation
-- [x] PDF export of the HTML report (`xhtml2pdf`)
-- [x] Console/TUI summary output
+---
 
-## Milestone 2 (v1.1) — Better signal
+## 🟢 Estado Actual (v0.1 - v0.2 / Completado)
 
-- [ ] Likely-rename heuristic detection (name similarity / shape match)
-- [ ] PK/FK/index best-effort comparison
-- [x] Interactive TUI (`textual`), opt-in via `--tui` flag, alongside the
-      existing always-on HTML/PDF/console outputs (archived:
-      `openspec/changes/archive/2026-07-10-interactive-tui/`)
-- [x] Accept ADO.NET-style connection string fragments (`Data Source=`,
-      `Initial Catalog=`, `User Id=`, ...) and translate them to the ODBC
-      keywords `pyodbc` requires, auto-prepending `Driver=...`. Revises
-      technical-baseline.md decision #2 (archived:
-      `openspec/changes/archive/2026-07-10-connection-string-translation/`).
-- [ ] Expand the TUI to manage connection profiles (list, add, edit,
-      delete, checkbox selection of which profiles to compare), matching
-      the original technical-baseline.md decision #7 vision — supersedes
-      the current read-only-viewer-only scope shipped in
-      `interactive-tui`.
+- [x] Configuración de perfiles de conexión (SQL Server, sintaxis ODBC y ADO.NET/SqlClient).
+- [x] Extracción de esquemas en vivo (tablas y columnas: nombre, tipo, tamaño/precisión/escala, nullability).
+- [x] Motor de comparación N-way (comparación de esquemas basada en unión de objetos baseline).
+- [x] Detección de drift (tablas faltantes, columnas faltantes, discrepancias de tipo/tamaño/nullability).
+- [x] Reportes exportables (HTML, PDF vía `xhtml2pdf`, Excel `.xlsx` vía `openpyxl`, salida por consola).
+- [x] Interfaz TUI interactiva (`textual`) con `--tui`.
+- [x] Consolidación interactiva de decisiones y generación de scripts de corrección T-SQL.
 
-## Milestone 3 (v2) — Spreadsheet export
+---
 
-- [ ] CSV/Excel report export
+## 🚀 Versiones Objetivo & Roadmap Multibase de Datos (v0.3 — v1.0)
 
-## Milestone 4 (later, not committed)
+### Versión 0.3 — Arquitectura Limpia, Provider SQL Server & Config v2
+* **`docs-roadmap-and-adrs` (Fase 0):** ADRs iniciales, pruebas de caracterización y golden files para SQL Server.
+* **`architecture-layered-domain` (Fase 1.A):** Separación de capas `domain/schema` y `domain/comparison` neutras.
+* **`architecture-application-use-cases` (Fase 1.B):** Puertos de aplicación, `CompareProfilesUseCase` y `cli.py` como composition root.
+* **`provider-sqlserver-extraction` (Fase 2):** Extracción del proveedor de SQL Server a `infrastructure/providers/sqlserver/`.
+* **`config-v2-and-optional-dependencies` (Fase 3):** Configuración `profiles:` v2, drivers como extras opcionales en `pyproject.toml` (`sqlserver`, `postgresql`, etc.) y comandos `bdiff providers doctor`.
 
-- [ ] DDL-export-file discovery mode (offline / no direct DB access)
-- [ ] Parallel extraction if database count grows large (50+)
-- [ ] Configurable ignore-list (known intentional differences, e.g. legacy
-      tables that are expected to diverge)
+### Versión 0.4 — Proveedor PostgreSQL
+* **`canonical-domain-models-and-capabilities` (Fase 4):** Modelos canónicos `QualifiedName`, `SqlType` y `ProviderCapabilities`.
+* **`provider-postgresql` (Fase 5):** Adaptador PostgreSQL con `psycopg`, introspección de catalog/enums/arrays, quoting `"name"` y DDL PostgreSQL.
 
-## Explicitly Deferred / Out of Scope
+### Versión 0.5 — Proveedor SQLite
+* **`provider-sqlite` (Fase 6):** Adaptador SQLite con `sqlite3`, soporte para `main`/`temp`/attached DBs, type affinity y estrategia de reconstrucción de tablas (`table rebuild`).
 
-- Schema migration or write operations against target databases.
-- Continuous/scheduled execution or a server component.
-- Data-level (row content) comparison.
-- Automatic schema reconciliation/merge.
+### Versión 0.6 — Proveedores MySQL y MariaDB
+* **`provider-mysql-mariadb` (Fase 7):** Adaptadores independientes para `mysql` y `mariadb` compartiendo utilidades bajo `mysql_family`, manejo de `AUTO_INCREMENT`, `UNSIGNED`, `ENUM`, `SET` y backticks.
 
-## Status
+### Versión 0.7 — Proveedor Oracle
+* **`provider-oracle` (Fase 8):** Adaptador Oracle con `python-oracledb` (Thin mode), introspección `ALL_TAB_COLUMNS`, mapeo de `OWNER`, mayúsculas y tipos nativos (`NUMBER`, `VARCHAR2`).
 
-`scaffold-project` is done (archived: `openspec/changes/archive/2026-07-10-scaffold-project/`).
-`pyproject.toml`, the `src/schema_comparator/` package skeleton, and pytest
-configuration are in place on `feat/scaffold-project`, verified PASS.
+### Versión 0.8 — Objetos de Esquema Avanzados
+* **`advanced-schema-objects-comparison` (Fase 9):** Inspección y comparación de Primary Keys, Foreign Keys, Unique Constraints, Check Constraints e Índices.
 
-`connection-profile-config` is done (archived: `openspec/changes/archive/2026-07-10-connection-profile-config/`).
+### Versión 0.9 — Comparación Semántica Cross-Provider
+* **`cross-provider-semantic-comparison` (Fase 10):** Modo `semantic` opt-in para comparación heterogénea entre distintos motores (ej. SQL Server vs PostgreSQL), matriz de equivalencias y reportes de portabilidad.
 
-`schema-extraction` is done (archived: `openspec/changes/archive/2026-07-10-schema-extraction/`).
-
-`comparison-engine` is done (archived: `openspec/changes/archive/2026-07-10-comparison-engine/`),
-including missing-table detection as its first functional diff category.
-Missing-column detection and type/size/nullability mismatch detection
-remain separate, not-yet-started roadmap items.
-
-The remaining Milestone 1 scope (missing-column detection, type/size/nullability
-mismatch detection, HTML report generation, PDF export, console/TUI summary)
-is split into two SDD changes instead of one, to keep each change reviewable:
-
-- **Change A — `diff-detection-completion`** is done (archived:
-  `openspec/changes/archive/2026-07-10-diff-detection-completion/`).
-  Missing-column detection and type/size/nullability mismatch detection are
-  implemented, verified PASS (2 non-critical warnings, see its verify-report),
-  and merged into the `comparison-engine` baseline spec.
-- **Change B — `reporting-and-output`** is done (archived:
-  `openspec/changes/archive/2026-07-10-reporting-and-output/`). HTML report
-  generation, PDF export (`xhtml2pdf`), and console summary output are
-  implemented, verified PASS (1 cosmetic warning, 1 process suggestion, see
-  its verify-report), with a new `reporting-and-output` baseline spec at
-  `openspec/specs/reporting-and-output/spec.md`.
-
-**Milestone 1 is complete.** All items are implemented and archived. Next up:
-Milestone 2 (`likely-rename heuristic detection`, `PK/FK/index comparison`),
-as its own SDD change(s) — not started yet.
+### Versión 1.0 — Estabilización & API Pública
+* API de proveedores estable, suite completa de pruebas de contrato en CI y documentación consolidada.

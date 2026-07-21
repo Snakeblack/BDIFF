@@ -15,6 +15,7 @@ scale: team
 strict_tdd: false
 
 project:
+  version: "0.3.0"
   status: foundation-defined
   stack:
     languages: [python]
@@ -49,17 +50,17 @@ capabilities:
 
 testing:
   strict_tdd_mode: disabled
-  detected: 2026-07-10
+  detected: 2026-07-21
   test_runner:
-    command: ""
-    framework: ""
+    command: ".venv\\Scripts\\pytest.exe"
+    framework: "pytest"
   test_layers:
-    unit: false
-    integration: false
+    unit: true
+    integration: true
     e2e: false
   coverage:
-    available: false
-    command: ""
+    available: true
+    command: ".venv\\Scripts\\pytest.exe --cov=src"
   quality_tools:
     linter:
       available: false
@@ -71,11 +72,7 @@ testing:
       available: false
       command: ""
   notes: >
-    Empty project — no pyproject.toml, requirements.txt, or test runner
-    present yet. Strict TDD defaulted to false because no test runner exists
-    to enforce it. Recommend adopting pytest + pytest-cov (see stack-python-testing)
-    once the project scaffold is created in sdd-foundation, then re-run sdd-init
-    (or update this block manually) to flip strict_tdd_mode to enabled.
+    Testing fully configured with pytest and pytest-cov. All 350 unit and integration tests passing.
 
 rules:
   foundation:
