@@ -4,6 +4,12 @@ Todas las modificaciones destacables de este proyecto se documentarán en este a
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/), y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.5.0] - 2026-07-21
+
+### Añadido
+- Estrategia dinámica de relleno de valores nulos (Null-Backfill Strategy) previa a la conversión de columnas a `NOT NULL` en scripts DDL T-SQL (`_get_default_backfill_literal`), evitando errores de restricción 515.
+- Selección por defecto del valor 'No hacer nada' / 'Ignorar' (`(None, ())`) en la pantalla interactiva de decisiones (`DecisionScreen`) del TUI de consolidación.
+
 ## [0.4.0] - 2026-07-21
 
 ### Añadido
