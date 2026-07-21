@@ -94,7 +94,6 @@ def test_format_sql_column_definition_integer_with_embedded_precision_string() -
     assert format_sql_column_definition(attrs) == "int NULL"
 
 
-
 def test_generate_ddl_for_profile_missing_column() -> None:
     attrs = ColumnAttributes(
         data_type="int",
@@ -199,7 +198,9 @@ def test_write_sql_scripts_creates_files() -> None:
         content_b = file_b.read_text(encoding="utf-8")
         
         assert "USE [real_db_a];" in content_a
-        assert "ALTER TABLE [dbo].[users] ADD [age] int NOT NULL;" in content_a
+        assert "EXEC sys.sp_executesql N'ALTER TABLE [dbo].[users] ADD [age] int NULL;'" in content_a
+        assert "EXEC sys.sp_executesql N'UPDATE [dbo].[users] SET [age] = 0 WHERE [age] IS NULL;'" in content_a
+        assert "EXEC sys.sp_executesql N'ALTER TABLE [dbo].[users] ALTER COLUMN [age] int NOT NULL;'" in content_a
         
         assert "USE [real_db_b];" in content_b
         assert "ALTER TABLE [dbo].[users] ALTER COLUMN [email] int NOT NULL;" in content_b

@@ -2,6 +2,7 @@
 
 import datetime
 import re
+from dataclasses import replace
 
 from schema_comparator.config.models import ConnectionProfile
 from schema_comparator.domain.comparison.models import ColumnAttributes
@@ -309,6 +310,32 @@ def generate_ddl_for_profile(
             col_print = _escape_literal(col_esc)
 
             if res.is_missing_column:
+                add_column_sql = (
+                    f"ALTER TABLE [{schema_esc}].[{table_esc}] ADD [{col_esc}] {col_def};"
+                )
+                add_column_action = f"        {add_column_sql}\n"
+                add_column_follow_up = ""
+                if not res.target_attributes.is_nullable:
+                    nullable_col_def = format_sql_column_definition(
+                        replace(res.target_attributes, is_nullable=True)
+                    )
+                    backfill_val = _get_default_backfill_literal(res.target_attributes)
+                    add_column_sql = (
+                        f"ALTER TABLE [{schema_esc}].[{table_esc}] ADD [{col_esc}] {nullable_col_def};"
+                    )
+                    update_column_sql = (
+                        f"UPDATE [{schema_esc}].[{table_esc}] SET [{col_esc}] = {backfill_val} "
+                        f"WHERE [{col_esc}] IS NULL;"
+                    )
+                    alter_column_sql = (
+                        f"ALTER TABLE [{schema_esc}].[{table_esc}] ALTER COLUMN [{col_esc}] {col_def};"
+                    )
+                    add_column_action = (
+                        f"        EXEC sys.sp_executesql N'{_escape_literal(add_column_sql)}';\n"
+                        f"        EXEC sys.sp_executesql N'{_escape_literal(update_column_sql)}';\n"
+                        f"        EXEC sys.sp_executesql N'{_escape_literal(alter_column_sql)}';\n"
+                    )
+
                 sql = (
                     f"    IF NOT EXISTS (\n"
                     f"        SELECT 1 \n"
@@ -318,7 +345,8 @@ def generate_ddl_for_profile(
                     f"        WHERE s.name = '{schema_lit}' AND o.name = '{table_lit}' AND c.name = '{col_lit}'\n"
                     f"    )\n"
                     f"    BEGIN\n"
-                    f"        ALTER TABLE [{schema_esc}].[{table_esc}] ADD [{col_esc}] {col_def};\n"
+                    f"{add_column_action}"
+                    f"{add_column_follow_up}"
                     f"        PRINT 'Columna [{col_print}] agregada con exito a [{schema_print}].[{table_print}].';\n"
                     f"    END"
                 )
