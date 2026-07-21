@@ -35,8 +35,8 @@ def _write_yaml(tmp_path: pathlib.Path, content: str, filename: str = "config.lo
 def test_two_entry_file_returns_two_profiles(tmp_path: pathlib.Path) -> None:
     content = """
 databases:
-  poliza-service: "Driver={ODBC Driver 18 for SQL Server};Server=srv1;Database=PolizaDB;UID=u;PWD=p;"
-  siniestro-service: "Driver={ODBC Driver 18 for SQL Server};Server=srv2;Database=SiniestroDB;Trusted_Connection=yes;"
+    catalog-service: "Driver={ODBC Driver 18 for SQL Server};Server=srv1;Database=CatalogDB;UID=u;PWD=p;"
+    orders-service: "Driver={ODBC Driver 18 for SQL Server};Server=srv2;Database=OrdersDB;Trusted_Connection=yes;"
 """
     config_path = _write_yaml(tmp_path, content)
 
@@ -44,11 +44,11 @@ databases:
 
     assert len(profiles) == 2
     by_name = {p.name: p for p in profiles}
-    assert by_name["poliza-service"].connection_string == (
-        "Driver={ODBC Driver 18 for SQL Server};Server=srv1;Database=PolizaDB;UID=u;PWD=p;"
+    assert by_name["catalog-service"].connection_string == (
+        "Driver={ODBC Driver 18 for SQL Server};Server=srv1;Database=CatalogDB;UID=u;PWD=p;"
     )
-    assert by_name["siniestro-service"].connection_string == (
-        "Driver={ODBC Driver 18 for SQL Server};Server=srv2;Database=SiniestroDB;Trusted_Connection=yes;"
+    assert by_name["orders-service"].connection_string == (
+        "Driver={ODBC Driver 18 for SQL Server};Server=srv2;Database=OrdersDB;Trusted_Connection=yes;"
     )
     assert all(isinstance(p, ConnectionProfile) for p in profiles)
 
@@ -136,21 +136,21 @@ def test_databases_not_a_mapping_raises_config_parse_error(tmp_path: pathlib.Pat
 
 
 def test_leading_and_trailing_whitespace_is_trimmed(tmp_path: pathlib.Path) -> None:
-    content = 'databases:\n  "  poliza-service  ": "  Driver=X;PWD=y;  "\n'
+    content = 'databases:\n  "  catalog-service  ": "  Driver=X;PWD=y;  "\n'
     config_path = _write_yaml(tmp_path, content)
 
     profiles = load_profiles(config_path)
 
     assert len(profiles) == 1
-    assert profiles[0].name == "poliza-service"
+    assert profiles[0].name == "catalog-service"
     assert profiles[0].connection_string == "Driver=X;PWD=y;"
 
 
 def test_exact_duplicate_yaml_key_raises_profile_validation_error(tmp_path: pathlib.Path) -> None:
     content = (
         "databases:\n"
-        '  poliza-service: "Driver=X;PWD=first;"\n'
-        '  poliza-service: "Driver=X;PWD=second;"\n'
+        '  catalog-service: "Driver=X;PWD=first;"\n'
+        '  catalog-service: "Driver=X;PWD=second;"\n'
     )
     config_path = _write_yaml(tmp_path, content)
 
@@ -163,8 +163,8 @@ def test_case_insensitive_duplicate_name_raises_profile_validation_error(
 ) -> None:
     content = (
         "databases:\n"
-        '  Poliza-Service: "Driver=X;PWD=first;"\n'
-        '  poliza-service: "Driver=X;PWD=second;"\n'
+        '  Catalog-Service: "Driver=X;PWD=first;"\n'
+        '  catalog-service: "Driver=X;PWD=second;"\n'
     )
     config_path = _write_yaml(tmp_path, content)
 
@@ -183,13 +183,13 @@ def test_blank_name_raises_profile_validation_error(tmp_path: pathlib.Path) -> N
 
 
 def test_blank_connection_string_raises_profile_validation_error(tmp_path: pathlib.Path) -> None:
-    content = 'databases:\n  poliza-service: "   "\n'
+    content = 'databases:\n  catalog-service: "   "\n'
     config_path = _write_yaml(tmp_path, content)
 
     with pytest.raises(ProfileValidationError) as exc_info:
         load_profiles(config_path)
 
-    assert "poliza-service" in str(exc_info.value)
+    assert "catalog-service" in str(exc_info.value)
 
 
 # --- Phase 6: cross-cutting guardrails ---------------------------------------
@@ -234,8 +234,8 @@ def test_no_leakage_on_empty_name(tmp_path: pathlib.Path, caplog: pytest.LogCapt
 def test_no_leakage_on_duplicate_name(tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture) -> None:
     content = (
         "databases:\n"
-        f'  Poliza-Service: "{_SENTINEL_CONN}"\n'
-        f'  poliza-service: "{_SENTINEL_CONN}"\n'
+        f'  Catalog-Service: "{_SENTINEL_CONN}"\n'
+        f'  catalog-service: "{_SENTINEL_CONN}"\n'
     )
     config_path = _write_yaml(tmp_path, content)
     with pytest.raises(ProfileValidationError) as exc_info:
@@ -246,7 +246,7 @@ def test_no_leakage_on_duplicate_name(tmp_path: pathlib.Path, caplog: pytest.Log
 def test_no_leakage_on_empty_connection_string(
     tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    content = 'databases:\n  poliza-service: "   "\n'
+    content = 'databases:\n  catalog-service: "   "\n'
     config_path = _write_yaml(tmp_path, content)
     with pytest.raises(ProfileValidationError) as exc_info:
         load_profiles(config_path)
@@ -254,7 +254,7 @@ def test_no_leakage_on_empty_connection_string(
 
 
 def test_repr_redacts_sentinel_secret_end_to_end(tmp_path: pathlib.Path) -> None:
-    content = f'databases:\n  poliza-service: "{_SENTINEL_CONN}"\n'
+    content = f'databases:\n  catalog-service: "{_SENTINEL_CONN}"\n'
     config_path = _write_yaml(tmp_path, content)
     profiles = load_profiles(config_path)
     rendered = repr(profiles[0])
@@ -312,7 +312,7 @@ def test_load_profiles_does_not_import_pyodbc_or_open_sockets(
     monkeypatch.setattr(socket, "socket", _raise_if_socket_opened)
     sys.modules.pop("pyodbc", None)
 
-    content = 'databases:\n  poliza-service: "Driver=X;UID=u;PWD=p;"\n'
+    content = 'databases:\n  catalog-service: "Driver=X;UID=u;PWD=p;"\n'
     config_path = _write_yaml(tmp_path, content)
 
     profiles = load_profiles(config_path)
@@ -327,7 +327,7 @@ def test_load_profiles_does_not_import_pyodbc_or_open_sockets(
 def test_ado_net_connection_string_is_translated_to_odbc_form(tmp_path: pathlib.Path) -> None:
     content = (
         "databases:\n"
-        '  poliza-service: "Data Source=srv1;Initial Catalog=PolizaDB;User Id=u;Password=p;"\n'
+        '  catalog-service: "Data Source=srv1;Initial Catalog=CatalogDB;User Id=u;Password=p;"\n'
     )
     config_path = _write_yaml(tmp_path, content)
 
@@ -336,7 +336,7 @@ def test_ado_net_connection_string_is_translated_to_odbc_form(tmp_path: pathlib.
     assert len(profiles) == 1
     connection_string = profiles[0].connection_string
     assert "Server=srv1" in connection_string
-    assert "Database=PolizaDB" in connection_string
+    assert "Database=CatalogDB" in connection_string
     assert "UID=u" in connection_string
     assert "PWD=p" in connection_string
     assert "Driver=" in connection_string
@@ -346,19 +346,19 @@ def test_ado_net_connection_string_is_translated_to_odbc_form(tmp_path: pathlib.
 def test_unrecognized_connection_string_raises_profile_validation_error(
     tmp_path: pathlib.Path,
 ) -> None:
-    content = 'databases:\n  poliza-service: "justsomeopaquevalue"\n'
+    content = 'databases:\n  catalog-service: "justsomeopaquevalue"\n'
     config_path = _write_yaml(tmp_path, content)
 
     with pytest.raises(ProfileValidationError) as exc_info:
         load_profiles(config_path)
 
-    assert "poliza-service" in str(exc_info.value)
+    assert "catalog-service" in str(exc_info.value)
 
 
 def test_no_leakage_on_unrecognized_connection_string_format(
     tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    content = f'databases:\n  poliza-service: "{_SENTINEL_USER}{_SENTINEL_PASS}"\n'
+    content = f'databases:\n  catalog-service: "{_SENTINEL_USER}{_SENTINEL_PASS}"\n'
     config_path = _write_yaml(tmp_path, content)
 
     with pytest.raises(ProfileValidationError) as exc_info:

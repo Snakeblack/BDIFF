@@ -119,8 +119,8 @@ def test_generate_ddl_not_null_column_backfills_nulls() -> None:
     mod_res = [
         ColumnResolution(
             schema_name="dbo",
-            table_name="Polizas",
-            column_name="IdTomador",
+            table_name="Orders",
+            column_name="CustomerId",
             target_attributes=not_null_attrs,
             profiles_to_update=("dev_db",),
             is_missing_column=False,
@@ -129,8 +129,8 @@ def test_generate_ddl_not_null_column_backfills_nulls() -> None:
     add_res = [
         ColumnResolution(
             schema_name="dbo",
-            table_name="Polizas",
-            column_name="IdCobrador",
+            table_name="Orders",
+            column_name="WarehouseId",
             target_attributes=not_null_attrs,
             profiles_to_update=("dev_db",),
             is_missing_column=True,
@@ -138,11 +138,13 @@ def test_generate_ddl_not_null_column_backfills_nulls() -> None:
     ]
 
     ddl_mod = generate_ddl_for_profile(resolutions=mod_res, profile=profile)
-    assert "UPDATE [dbo].[Polizas]" in ddl_mod
-    assert "SET [IdTomador] = 0" in ddl_mod
-    assert "WHERE [IdTomador] IS NULL;" in ddl_mod
-    assert "ALTER TABLE [dbo].[Polizas] ALTER COLUMN [IdTomador] int NOT NULL;" in ddl_mod
+    assert "UPDATE [dbo].[Orders]" in ddl_mod
+    assert "SET [CustomerId] = 0" in ddl_mod
+    assert "WHERE [CustomerId] IS NULL;" in ddl_mod
+    assert "ALTER TABLE [dbo].[Orders] ALTER COLUMN [CustomerId] int NOT NULL;" in ddl_mod
 
     ddl_add = generate_ddl_for_profile(resolutions=add_res, profile=profile)
-    assert "ALTER TABLE [dbo].[Polizas] ADD [IdCobrador] int NOT NULL;" in ddl_add
+    assert "EXEC sys.sp_executesql N'ALTER TABLE [dbo].[Orders] ADD [WarehouseId] int NULL;'" in ddl_add
+    assert "EXEC sys.sp_executesql N'UPDATE [dbo].[Orders] SET [WarehouseId] = 0 WHERE [WarehouseId] IS NULL;'" in ddl_add
+    assert "EXEC sys.sp_executesql N'ALTER TABLE [dbo].[Orders] ALTER COLUMN [WarehouseId] int NOT NULL;'" in ddl_add
 

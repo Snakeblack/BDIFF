@@ -58,9 +58,9 @@ def test_split_token_returns_none_when_no_equals_present() -> None:
 
 
 def test_pure_ado_net_string_is_fully_translated() -> None:
-    result = translate("Data Source=srv1;Initial Catalog=PolizaDB;User Id=u;Password=p;", name="x")
+    result = translate("Data Source=srv1;Initial Catalog=CatalogDB;User Id=u;Password=p;", name="x")
     assert "Server=srv1" in result
-    assert "Database=PolizaDB" in result
+    assert "Database=CatalogDB" in result
     assert "UID=u" in result
     assert "PWD=p" in result
     assert "Data Source=" not in result
@@ -156,20 +156,20 @@ def test_only_unknown_keywords_raises_unrecognized_format_error() -> None:
 
 
 def test_driver_auto_prepended_when_absent() -> None:
-    result = translate("Data Source=srv1;Initial Catalog=PolizaDB;", name="x")
+    result = translate("Data Source=srv1;Initial Catalog=CatalogDB;", name="x")
     assert result.startswith("Driver={ODBC Driver 17 for SQL Server};")
     assert result.count("Driver=") == 1
 
 
 @pytest.mark.parametrize("driver_kw", ["driver", "DRIVER", "Driver"])
 def test_driver_auto_prepend_suppressed_case_insensitively(driver_kw: str) -> None:
-    raw = f"{driver_kw}={{Custom Driver}};Data Source=srv1;Initial Catalog=PolizaDB;"
+    raw = f"{driver_kw}={{Custom Driver}};Data Source=srv1;Initial Catalog=CatalogDB;"
     result = translate(raw, name="x")
     assert result.casefold().count("driver=") == 1
 
 
 def test_translate_is_idempotent() -> None:
-    raw = "Data Source=srv1;Initial Catalog=PolizaDB;User Id=u;Password=p;"
+    raw = "Data Source=srv1;Initial Catalog=CatalogDB;User Id=u;Password=p;"
     once = translate(raw, name="x")
     twice = translate(once, name="x")
     assert once == twice
@@ -182,12 +182,12 @@ _PURE_ODBC_FIXTURES = [
     "Driver={ODBC Driver 18 for SQL Server};Server=your-server;Database=YourDb;UID=your-user;PWD=your-password;TrustServerCertificate=yes;",
     # config.example.yaml -> example-windows-auth
     "Driver={ODBC Driver 18 for SQL Server};Server=your-server;Database=YourOtherDb;Trusted_Connection=yes;",
-    # config.local.yaml -> salud
+    # config.local.yaml -> warehouse
     "Driver={ODBC Driver 18 for SQL Server};Server=your-server;Database=YourOtherDb;Trusted_Connection=yes;",
-    # tests/unit/config/test_loader.py -> poliza-service
-    "Driver={ODBC Driver 18 for SQL Server};Server=srv1;Database=PolizaDB;UID=u;PWD=p;",
-    # tests/unit/config/test_loader.py -> siniestro-service
-    "Driver={ODBC Driver 18 for SQL Server};Server=srv2;Database=SiniestroDB;Trusted_Connection=yes;",
+    # tests/unit/config/test_loader.py -> catalog-service
+    "Driver={ODBC Driver 18 for SQL Server};Server=srv1;Database=CatalogDB;UID=u;PWD=p;",
+    # tests/unit/config/test_loader.py -> orders-service
+    "Driver={ODBC Driver 18 for SQL Server};Server=srv2;Database=OrdersDB;Trusted_Connection=yes;",
     # tests/unit/config/test_loader.py -> only-service (minimal/non-standard driver token)
     "Driver=X;Server=srv;Database=Db;UID=u;PWD=p;",
 ]
@@ -198,11 +198,11 @@ def test_pure_odbc_string_is_byte_identical_after_translation(raw: str) -> None:
     assert translate(raw, name="x") == raw
 
 
-def test_mixed_autos_shaped_string_translates_correctly() -> None:
+def test_mixed_retail_shaped_string_translates_correctly() -> None:
     raw = (
         "Driver={ODBC Driver 18 for SQL Server};"
         "Data Source=IBPFMPRU.example;"
-        "Initial Catalog=SegurosEcosistemaAutos;"
+        "Initial Catalog=RetailPlatformDB;"
         "User Id=USR_x;"
         "Password=xxxxxxxxx;"
         "Integrated Security=False;"
@@ -213,7 +213,7 @@ def test_mixed_autos_shaped_string_translates_correctly() -> None:
     assert result.count("Driver=") == 1
     assert "Driver={ODBC Driver 18 for SQL Server}" in result
     assert "Server=IBPFMPRU.example" in result
-    assert "Database=SegurosEcosistemaAutos" in result
+    assert "Database=RetailPlatformDB" in result
     assert "UID=USR_x" in result
     assert "PWD=xxxxxxxxx" in result
     assert "Integrated Security" not in result

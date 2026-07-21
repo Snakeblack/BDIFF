@@ -9,10 +9,10 @@ from schema_comparator.config.models import ConnectionProfile
 
 def test_profile_exposes_expected_fields() -> None:
     profile = ConnectionProfile(
-        name="poliza-service",
+        name="catalog-service",
         connection_string=(
             "Driver={ODBC Driver 18 for SQL Server};Server=srv1;"
-            "Database=PolizaDB;UID=u;PWD=p;"
+            "Database=CatalogDB;UID=u;PWD=p;"
         ),
     )
     field_names = {f.name for f in dataclasses.fields(profile)}
@@ -24,7 +24,7 @@ def test_profile_exposes_expected_fields() -> None:
 
 
 def test_profile_is_immutable() -> None:
-    profile = ConnectionProfile(name="siniestro-service", connection_string="X")
+    profile = ConnectionProfile(name="orders-service", connection_string="X")
     with pytest.raises(dataclasses.FrozenInstanceError):
         profile.name = "changed"  # type: ignore[misc]
 
@@ -32,15 +32,15 @@ def test_profile_is_immutable() -> None:
 def test_windows_auth_connection_string_accepted_unchanged() -> None:
     conn_str = (
         "Driver={ODBC Driver 18 for SQL Server};Server=srv2;"
-        "Database=SiniestroDB;Trusted_Connection=yes;"
+        "Database=OrdersDB;Trusted_Connection=yes;"
     )
-    profile = ConnectionProfile(name="siniestro-service", connection_string=conn_str)
+    profile = ConnectionProfile(name="orders-service", connection_string=conn_str)
     assert profile.connection_string == conn_str
 
 
 def test_repr_redacts_sql_auth_connection_string() -> None:
     profile = ConnectionProfile(
-        name="poliza-service",
+        name="catalog-service",
         connection_string="Driver={ODBC Driver 18 for SQL Server};UID=SECRET_USER;PWD=SECRET_PASS;",
     )
     rendered = repr(profile)
@@ -51,7 +51,7 @@ def test_repr_redacts_sql_auth_connection_string() -> None:
 
 def test_repr_redacts_windows_auth_connection_string() -> None:
     profile = ConnectionProfile(
-        name="siniestro-service",
+        name="orders-service",
         connection_string="Driver={ODBC Driver 18 for SQL Server};Trusted_Connection=yes;",
     )
     rendered = repr(profile)

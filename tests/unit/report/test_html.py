@@ -31,11 +31,11 @@ def test_build_context_missing_table_marks_profile_distinctly() -> None:
 
 def test_build_context_table_missing_from_multiple_profiles_is_a_single_row() -> None:
     result = ComparisonResult(
-        compared_profiles=("autos", "decesos", "hogar", "vida"),
+        compared_profiles=("catalog", "orders", "warehouse", "analytics"),
         entries=(
-            MissingTable(schema_name="dbo", table_name="TC_Productos", missing_from_profile="decesos"),
-            MissingTable(schema_name="dbo", table_name="TC_Productos", missing_from_profile="hogar"),
-            MissingTable(schema_name="dbo", table_name="TC_Productos", missing_from_profile="vida"),
+            MissingTable(schema_name="dbo", table_name="Products", missing_from_profile="orders"),
+            MissingTable(schema_name="dbo", table_name="Products", missing_from_profile="warehouse"),
+            MissingTable(schema_name="dbo", table_name="Products", missing_from_profile="analytics"),
         ),
     )
 
@@ -44,10 +44,10 @@ def test_build_context_table_missing_from_multiple_profiles_is_a_single_row() ->
     group = context["groups"][0]
     assert len(group["rows"]) == 1
     row = group["rows"][0]
-    assert row["cells"]["autos"] is None
-    assert row["cells"]["decesos"] == {"kind": "missing", "text": "\u274c"}
-    assert row["cells"]["hogar"] == {"kind": "missing", "text": "\u274c"}
-    assert row["cells"]["vida"] == {"kind": "missing", "text": "\u274c"}
+    assert row["cells"]["catalog"] is None
+    assert row["cells"]["orders"] == {"kind": "missing", "text": "\u274c"}
+    assert row["cells"]["warehouse"] == {"kind": "missing", "text": "\u274c"}
+    assert row["cells"]["analytics"] == {"kind": "missing", "text": "\u274c"}
 
 
 def test_build_context_missing_column_marks_profile_distinctly() -> None:
