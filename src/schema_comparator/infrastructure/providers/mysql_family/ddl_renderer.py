@@ -7,33 +7,6 @@ from typing import Sequence
 from schema_comparator.config.models import ConnectionProfile
 from schema_comparator.domain.comparison.models import ColumnAttributes
 
-_MYSQL_NON_PARAMETRIC_TYPES = {
-    "boolean",
-    "bool",
-    "tinyint",
-    "smallint",
-    "mediumint",
-    "int",
-    "integer",
-    "bigint",
-    "float",
-    "double",
-    "date",
-    "datetime",
-    "timestamp",
-    "time",
-    "year",
-    "text",
-    "tinytext",
-    "mediumtext",
-    "longtext",
-    "blob",
-    "tinyblob",
-    "mediumblob",
-    "longblob",
-    "json",
-}
-
 
 def quote_identifier(identifier: str) -> str:
     """Quote a MySQL/MariaDB identifier using backticks."""
@@ -52,6 +25,9 @@ def format_mysql_data_type(attrs: ColumnAttributes) -> str:
         if attrs.numeric_scale is not None:
             return f"{clean_type}({attrs.numeric_precision}, {attrs.numeric_scale})"
         return f"{clean_type}({attrs.numeric_precision})"
+    # If the original data_type already included custom parameterization (e.g. ENUM, SET, DATETIME(6)), keep it intact
+    if "(" in attrs.data_type and ")" in attrs.data_type:
+        return attrs.data_type
     return clean_type
 
 
@@ -60,7 +36,15 @@ def format_mysql_column_definition(col_name: str, attrs: ColumnAttributes) -> st
     quoted_col = quote_identifier(col_name)
     type_str = format_mysql_data_type(attrs)
     nullability = "NULL" if attrs.is_nullable else "NOT NULL"
-    return f"{quoted_col} {type_str} {nullability}"
+
+    parts = [quoted_col, type_str, nullability]
+
+    if getattr(attrs, "default_expression", None):
+        parts.append(f"DEFAULT {attrs.default_expression}")
+    if getattr(attrs, "is_identity", False):
+        parts.append("AUTO_INCREMENT")
+
+    return " ".join(parts)
 
 
 def generate_mysql_script(

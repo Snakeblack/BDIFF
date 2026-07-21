@@ -45,7 +45,12 @@ def parse_mysql_family_options(profile: ConnectionProfile) -> dict[str, Any]:
                     if k_lower in ("server", "host", "data source"):
                         options["host"] = v_val
                     elif k_lower in ("port",):
-                        options["port"] = int(v_val)
+                        try:
+                            options["port"] = int(v_val)
+                        except ValueError as exc:
+                            raise ProfileValidationError(
+                                f"Puerto inválido '{v_val}' en el perfil de conexión."
+                            ) from exc
                     elif k_lower in ("database", "initial catalog", "db"):
                         options["database"] = v_val
                     elif k_lower in ("uid", "user", "user id", "username"):

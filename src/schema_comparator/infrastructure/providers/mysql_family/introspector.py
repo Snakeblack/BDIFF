@@ -26,6 +26,7 @@ INNER JOIN information_schema.TABLES t
    AND t.TABLE_NAME = c.TABLE_NAME
 WHERE t.TABLE_TYPE = 'BASE TABLE'
   AND c.TABLE_SCHEMA NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')
+  AND (c.TABLE_SCHEMA = DATABASE() OR DATABASE() IS NULL OR DATABASE() = '')
 ORDER BY c.TABLE_SCHEMA, c.TABLE_NAME, c.ORDINAL_POSITION;
 """.strip()
 

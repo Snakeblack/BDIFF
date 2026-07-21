@@ -1,15 +1,24 @@
 """Unit tests for MySQL and MariaDB providers."""
 
+import pytest
+
+from schema_comparator.config.errors import ProfileValidationError
 from schema_comparator.config.models import ConnectionProfile
 from schema_comparator.domain.comparison.models import ColumnAttributes
 from schema_comparator.infrastructure.providers.mariadb import MariaDbProvider
 from schema_comparator.infrastructure.providers.mysql import MySqlProvider
+from schema_comparator.infrastructure.providers.mysql_family.connection import connect
 from schema_comparator.infrastructure.providers.mysql_family.ddl_renderer import (
     format_mysql_column_definition,
+    format_mysql_data_type,
     generate_mysql_script,
     quote_identifier,
 )
 from schema_comparator.infrastructure.providers.mysql_family.introspector import build_snapshot
+from schema_comparator.infrastructure.providers.mysql_family.profile_parser import (
+    parse_mysql_family_options,
+    validate_mysql_family_profile,
+)
 from schema_comparator.infrastructure.providers.registry import get_default_registry
 
 
@@ -40,6 +49,21 @@ def test_quote_identifier():
     assert quote_identifier("user`name") == "`user``name`"
 
 
+def test_profile_validation_and_parsing():
+    valid_profile = ConnectionProfile(name="my_db", connection_string="Server=localhost;Port=3306;Database=app;Uid=root;Pwd=secret;")
+    validate_mysql_family_profile(valid_profile, "mysql")
+    opts = parse_mysql_family_options(valid_profile)
+    assert opts["host"] == "localhost"
+    assert opts["port"] == 3306
+    assert opts["database"] == "app"
+    assert opts["user"] == "root"
+    assert opts["password"] == "secret"
+
+    invalid_port_profile = ConnectionProfile(name="bad_port", connection_string="Server=localhost;Port=invalid;")
+    with pytest.raises(ProfileValidationError):
+        parse_mysql_family_options(invalid_port_profile)
+
+
 def test_introspector_build_snapshot():
     rows = [
         ("app_db", "users", "id", "int", None, 10, 0, "NO", 1, None, "auto_increment", None),
@@ -55,6 +79,14 @@ def test_introspector_build_snapshot():
     assert t.columns[0].is_identity is True
     assert t.columns[1].name == "email"
     assert t.columns[1].is_nullable is True
+
+
+def test_enum_and_datetime_data_type_formatting():
+    enum_attrs = ColumnAttributes(data_type="ENUM('active','inactive')", character_maximum_length=None, numeric_precision=None, numeric_scale=None, is_nullable=False)
+    assert format_mysql_data_type(enum_attrs) == "ENUM('active','inactive')"
+
+    dt_attrs = ColumnAttributes(data_type="DATETIME(6)", character_maximum_length=None, numeric_precision=None, numeric_scale=None, is_nullable=True)
+    assert format_mysql_data_type(dt_attrs) == "DATETIME(6)"
 
 
 def test_generate_mysql_script():
