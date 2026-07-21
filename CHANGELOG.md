@@ -4,6 +4,15 @@ Todas las modificaciones destacables de este proyecto se documentarán en este a
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/), y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.8.0] - 2026-07-21
+
+### Añadido
+- Proveedores de infraestructura MySQL (`MySqlProvider`) y MariaDB (`MariaDbProvider`) bajo el paquete reutilizable `mysql_family`.
+- Introspección de catálogos mediante `information_schema.columns` e `information_schema.tables` con soporte para atributos nativos (`UNSIGNED`, `AUTO_INCREMENT`, `ENUM`, `SET`, `TINYINT(1)` / `BOOLEAN`).
+- Renderizado de scripts DDL para MySQL y MariaDB (`ddl_renderer.py`) con quoting de backticks (`` `...` ``), `ALTER TABLE ... ADD COLUMN`, `ALTER TABLE ... MODIFY COLUMN` y desactivación temporal de foreign keys (`SET FOREIGN_KEY_CHECKS = 0`).
+- Carga diferida (*lazy loading*) de `mysql` y `mariadb` en `ProviderRegistry` y extras opcionales `mysql` y `mariadb` (`pymysql>=1.1`) en `pyproject.toml`.
+- Suite de pruebas unitarias para proveedores MySQL/MariaDB en `tests/unit/infrastructure/test_mysql_mariadb_provider.py`.
+
 ## [0.7.0] - 2026-07-21
 
 ### Añadido
