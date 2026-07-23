@@ -46,7 +46,11 @@ def render_console(result: ComparisonResult) -> str:
             counts[type(entry)] += 1
     lines.append("Hallazgos por categoría:")
     for entry_type, label in _TYPE_LABELS.items():
-        if counts[entry_type] > 0 or entry_type in (MissingTable, MissingColumn, ColumnMismatch):
+        if counts[entry_type] > 0 or entry_type in (
+            MissingTable,
+            MissingColumn,
+            ColumnMismatch,
+        ):
             lines.append(f"  {label}: {counts[entry_type]}")
     lines.append("")
 
@@ -56,7 +60,11 @@ def render_console(result: ComparisonResult) -> str:
         for entries in rows_of_entries:
             view = present_finding(entries, result.compared_profiles)
             detail_str = f" [{view.detail_name}]" if view.detail_name else ""
-            profile_summary = ", ".join(f"{p}={val}" for p, val in view.cells_by_profile.items())
-            lines.append(f"    - [{view.object_kind}] {view.finding_type}{detail_str}: {profile_summary}")
+            profile_summary = ", ".join(
+                f"{p}={val}" for p, val in view.cells_by_profile.items()
+            )
+            lines.append(
+                f"    - [{view.object_kind}] {view.finding_type}{detail_str}: {profile_summary}"
+            )
 
     return "\n".join(lines)

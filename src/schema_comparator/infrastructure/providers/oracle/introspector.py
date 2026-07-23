@@ -52,7 +52,7 @@ def build_snapshot(profile_name: str, rows: list[tuple]) -> SchemaSnapshot:
             identity_col,
         ) = row[:11]
 
-        is_identity_bool = (identity_col == "YES")
+        is_identity_bool = identity_col == "YES"
 
         grouped.setdefault((owner, table), []).append(
             ColumnSnapshot(
@@ -63,7 +63,9 @@ def build_snapshot(profile_name: str, rows: list[tuple]) -> SchemaSnapshot:
                 numeric_scale=num_scale,
                 is_nullable=(nullable == "Y"),
                 ordinal_position=column_id,
-                default_expression=str(data_default).strip() if data_default is not None else None,
+                default_expression=str(data_default).strip()
+                if data_default is not None
+                else None,
                 is_identity=is_identity_bool,
                 collation=None,
             )
@@ -73,7 +75,9 @@ def build_snapshot(profile_name: str, rows: list[tuple]) -> SchemaSnapshot:
         TableSnapshot(
             schema_name=owner,
             table_name=table,
-            columns=tuple(sorted(cols, key=lambda c: (c.ordinal_position or 0, c.name))),
+            columns=tuple(
+                sorted(cols, key=lambda c: (c.ordinal_position or 0, c.name))
+            ),
         )
         for (owner, table), cols in sorted(grouped.items())
     )

@@ -13,7 +13,10 @@ class SchemaExtractionService:
 
     def __init__(self, registry: "ProviderRegistry | None" = None) -> None:
         if registry is None:
-            from schema_comparator.infrastructure.providers.registry import get_default_registry
+            from schema_comparator.infrastructure.providers.registry import (
+                get_default_registry,
+            )
+
             registry = get_default_registry()
         self._registry = registry
 

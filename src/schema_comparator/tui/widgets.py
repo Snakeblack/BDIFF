@@ -7,13 +7,17 @@ comparison-specific business logic itself.
 from rich.text import Text
 from textual.widgets import Input, RichLog, Static, Tree
 
-from schema_comparator.compare.models import ColumnMismatch, DiffEntry, MissingColumn, MissingTable
+from schema_comparator.compare.models import (
+    ColumnMismatch,
+    DiffEntry,
+    MissingColumn,
+    MissingTable,
+)
 from schema_comparator.report.attributes import format_attributes
 from schema_comparator.tui.formatting import (
     TreeData,
     detail_text,
     entry_matches,
-    header_text,
     leaf_label,
 )
 
@@ -40,20 +44,22 @@ class DetailPanel(Static):
         if isinstance(entry, ColumnMismatch):
             schema, table = entry.qualified_name
             markup = [
-                f"[bold cyan]🔍 Detalle de Discrepancia de Atributos[/]",
+                "[bold cyan]🔍 Detalle de Discrepancia de Atributos[/]",
                 f"[bold]Tabla:[/bold] {schema}.{table}",
                 f"[bold]Columna:[/bold] [yellow]{entry.column_name}[/]",
                 "",
                 "[bold underline]Definición por Perfil de Conexión:[/bold underline]",
             ]
             for profile, attrs in entry.values_by_profile:
-                markup.append(f"  • [bold]{profile}:[/bold] [green]{format_attributes(attrs)}[/]")
+                markup.append(
+                    f"  • [bold]{profile}:[/bold] [green]{format_attributes(attrs)}[/]"
+                )
             self.update("\n".join(markup))
-            
+
         elif isinstance(entry, MissingColumn):
             schema, table = entry.qualified_name
             markup = [
-                f"[bold orange3]➖ Detalle de Columna Faltante[/]",
+                "[bold orange3]➖ Detalle de Columna Faltante[/]",
                 f"[bold]Tabla:[/bold] {schema}.{table}",
                 f"[bold]Columna:[/bold] [orange3]{entry.column_name}[/]",
                 "",
@@ -62,13 +68,15 @@ class DetailPanel(Static):
                 "[bold underline]Definición en perfiles presentes:[/bold underline]",
             ]
             for profile, attrs in entry.present_attributes:
-                markup.append(f"  • [bold]{profile}:[/bold] [green]{format_attributes(attrs)}[/]")
+                markup.append(
+                    f"  • [bold]{profile}:[/bold] [green]{format_attributes(attrs)}[/]"
+                )
             self.update("\n".join(markup))
-            
+
         elif isinstance(entry, MissingTable):
             schema, table = entry.qualified_name
             markup = [
-                f"[bold red]✖ Detalle de Tabla Faltante[/]",
+                "[bold red]✖ Detalle de Tabla Faltante[/]",
                 f"[bold]Tabla:[/bold] [red]{schema}.{table}[/]",
                 "",
                 f"⚠️ [bold red]Faltante en el perfil:[/bold red] [bold underline]{entry.missing_from_profile}[/]",
@@ -98,12 +106,18 @@ class FindingsTree(Tree):
     def _styled_leaf_label(self, entry: DiffEntry) -> Text:
         """Build a visually rich, colored label for tree leaf nodes."""
         if isinstance(entry, MissingTable):
-            return Text.from_markup(f"[bold red]✖[/] [red]tabla faltante[/] (de [bold]{entry.missing_from_profile}[/bold])")
+            return Text.from_markup(
+                f"[bold red]✖[/] [red]tabla faltante[/] (de [bold]{entry.missing_from_profile}[/bold])"
+            )
         if isinstance(entry, MissingColumn):
-            return Text.from_markup(f"[bold orange3]➖[/] [bold orange3]{entry.column_name}[/]: [orange3]columna faltante[/] (de [bold]{entry.missing_from_profile}[/bold])")
+            return Text.from_markup(
+                f"[bold orange3]➖[/] [bold orange3]{entry.column_name}[/]: [orange3]columna faltante[/] (de [bold]{entry.missing_from_profile}[/bold])"
+            )
         if isinstance(entry, ColumnMismatch):
             profiles = ", ".join(p for p, _ in entry.values_by_profile)
-            return Text.from_markup(f"[bold yellow]≠[/] [bold yellow]{entry.column_name}[/]: [yellow]discrepancia de atributos[/] entre [bold]{profiles}[/bold]")
+            return Text.from_markup(
+                f"[bold yellow]≠[/] [bold yellow]{entry.column_name}[/]: [yellow]discrepancia de atributos[/] entre [bold]{profiles}[/bold]"
+            )
         return Text(leaf_label(entry))
 
     def populate(self, tree_data: TreeData) -> None:

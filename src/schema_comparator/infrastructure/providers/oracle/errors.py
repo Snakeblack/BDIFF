@@ -1,6 +1,9 @@
 """Exception translation for Oracle provider."""
 
-from schema_comparator.discovery.errors import ConnectionFailedError, MetadataAccessError
+from schema_comparator.discovery.errors import (
+    ConnectionFailedError,
+    MetadataAccessError,
+)
 
 
 def translate_connect_error(profile_name: str, exc: Exception) -> ConnectionFailedError:

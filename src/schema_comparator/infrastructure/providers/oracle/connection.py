@@ -7,7 +7,9 @@ from schema_comparator.config.models import ConnectionProfile
 
 
 @contextmanager
-def connect(profile: ConnectionProfile | None = None, **kwargs: Any) -> Generator[Any, None, None]:
+def connect(
+    profile: ConnectionProfile | None = None, **kwargs: Any
+) -> Generator[Any, None, None]:
     """Establish connection to Oracle using oracledb driver."""
     try:
         import oracledb

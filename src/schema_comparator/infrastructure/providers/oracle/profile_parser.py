@@ -9,7 +9,11 @@ from schema_comparator.config.models import ConnectionProfile
 
 def validate_oracle_profile(profile: ConnectionProfile) -> None:
     """Validate connection profile options for Oracle."""
-    if not profile.connection_string and "dsn" not in profile.options and "user" not in profile.options:
+    if (
+        not profile.connection_string
+        and "dsn" not in profile.options
+        and "user" not in profile.options
+    ):
         raise ProfileValidationError(
             f"El perfil '{profile.name}' para 'oracle' debe definir una cadena de conexión "
             "o especificar 'user' / 'dsn' en las opciones."

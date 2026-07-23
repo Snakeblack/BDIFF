@@ -25,21 +25,18 @@ def main() -> None:
         build_billing_db(),
         build_reporting_db(),
     ]
-    
+
     # 2. Compute differences
     result = compare_snapshots(snapshots)
-    
+
     # 3. Build ConnectionProfile objects for simulation
     profiles = [
         ConnectionProfile(name=name, connection_string=f"Database={name};")
         for name in result.compared_profiles
     ]
-    
+
     # 4. Launch TUI in simulation mode
-    app = SchemaComparatorApp(
-        result,
-        profiles=profiles
-    )
+    app = SchemaComparatorApp(result, profiles=profiles)
     app.run()
 
 

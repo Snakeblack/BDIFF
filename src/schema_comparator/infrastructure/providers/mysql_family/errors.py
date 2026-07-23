@@ -1,6 +1,9 @@
 """Exception translation for MySQL and MariaDB providers."""
 
-from schema_comparator.discovery.errors import ConnectionFailedError, MetadataAccessError
+from schema_comparator.discovery.errors import (
+    ConnectionFailedError,
+    MetadataAccessError,
+)
 
 
 def translate_connect_error(profile_name: str, exc: Exception) -> ConnectionFailedError:
@@ -15,4 +18,3 @@ def translate_query_error(profile_name: str, exc: Exception) -> MetadataAccessEr
     return MetadataAccessError(
         f"Error ejecutando consulta de catálogo MySQL/MariaDB en el perfil '{profile_name}': {exc}"
     )
-

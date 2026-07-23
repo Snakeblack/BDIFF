@@ -36,7 +36,9 @@ def test_example_config_values_are_obvious_placeholders() -> None:
 def test_example_config_demonstrates_both_auth_modes() -> None:
     document = _load_example_config()
     values = list(document["databases"].values())
-    assert any("UID=" in v and "PWD=" in v for v in values), "No SQL-auth placeholder entry found"
+    assert any("UID=" in v and "PWD=" in v for v in values), (
+        "No SQL-auth placeholder entry found"
+    )
     assert any("Trusted_Connection=yes;" in v for v in values), (
         "No Windows-auth placeholder entry found"
     )

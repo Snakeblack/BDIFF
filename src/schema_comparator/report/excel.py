@@ -8,13 +8,11 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
 from schema_comparator.compare.models import (
-    ColumnMismatch,
     ComparisonResult,
     DiffEntry,
     MissingColumn,
     MissingProcedure,
     MissingTable,
-    ProcedureMismatch,
 )
 from schema_comparator.report.attributes import MISSING_MARKER
 from schema_comparator.report.presentation import present_finding

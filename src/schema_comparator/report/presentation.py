@@ -76,7 +76,9 @@ def _format_procedure_signature(p_snap: ProcedureSnapshot) -> str:
     return f"{r_type} ({params_str}){hash_str}"
 
 
-def present_finding(entries: Sequence[DiffEntry], profiles: tuple[str, ...]) -> FindingView:
+def present_finding(
+    entries: Sequence[DiffEntry], profiles: tuple[str, ...]
+) -> FindingView:
     """Convert one group of sibling DiffEntry objects for an identity into a FindingView."""
     first = entries[0]
     schema_name, object_name = first.qualified_name
@@ -84,7 +86,9 @@ def present_finding(entries: Sequence[DiffEntry], profiles: tuple[str, ...]) -> 
     cells: dict[str, str] = {}
 
     if isinstance(first, MissingTable):
-        missing_profiles = {e.missing_from_profile for e in entries if isinstance(e, MissingTable)}
+        missing_profiles = {
+            e.missing_from_profile for e in entries if isinstance(e, MissingTable)
+        }
         for p in profiles:
             cells[p] = MISSING_MARKER if p in missing_profiles else "Presente"
         return FindingView(
@@ -97,7 +101,9 @@ def present_finding(entries: Sequence[DiffEntry], profiles: tuple[str, ...]) -> 
         )
 
     if isinstance(first, MissingColumn):
-        missing_profiles = {e.missing_from_profile for e in entries if isinstance(e, MissingColumn)}
+        missing_profiles = {
+            e.missing_from_profile for e in entries if isinstance(e, MissingColumn)
+        }
         for p in profiles:
             if p in missing_profiles:
                 cells[p] = MISSING_MARKER
@@ -128,13 +134,19 @@ def present_finding(entries: Sequence[DiffEntry], profiles: tuple[str, ...]) -> 
         )
 
     if isinstance(first, MissingProcedure):
-        missing_profiles = {e.missing_from_profile for e in entries if isinstance(e, MissingProcedure)}
+        missing_profiles = {
+            e.missing_from_profile for e in entries if isinstance(e, MissingProcedure)
+        }
         proc_dict: dict[str, ProcedureSnapshot] = {}
         for e in entries:
             if isinstance(e, MissingProcedure):
                 proc_dict.update(dict(e.present_procedures))
         sample_snap = next(iter(proc_dict.values()), None)
-        raw_kind = sample_snap.routine_type if sample_snap and sample_snap.routine_type else "PROCEDURE"
+        raw_kind = (
+            sample_snap.routine_type
+            if sample_snap and sample_snap.routine_type
+            else "PROCEDURE"
+        )
         kind = raw_kind.capitalize()
         for p in profiles:
             if p in missing_profiles:
@@ -157,7 +169,11 @@ def present_finding(entries: Sequence[DiffEntry], profiles: tuple[str, ...]) -> 
     if isinstance(first, ProcedureMismatch):
         values_dict = dict(first.values_by_profile)
         sample_snap = next(iter(values_dict.values()), None)
-        raw_kind = sample_snap.routine_type if sample_snap and sample_snap.routine_type else "PROCEDURE"
+        raw_kind = (
+            sample_snap.routine_type
+            if sample_snap and sample_snap.routine_type
+            else "PROCEDURE"
+        )
         kind = raw_kind.capitalize()
         for p in profiles:
             p_snap = values_dict.get(p)

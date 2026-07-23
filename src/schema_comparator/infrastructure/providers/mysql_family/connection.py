@@ -7,7 +7,9 @@ from schema_comparator.config.models import ConnectionProfile
 
 
 @contextmanager
-def connect(profile: ConnectionProfile | None = None, **kwargs: Any) -> Generator[Any, None, None]:
+def connect(
+    profile: ConnectionProfile | None = None, **kwargs: Any
+) -> Generator[Any, None, None]:
     """Establish connection to MySQL / MariaDB using pymysql driver."""
     try:
         import pymysql
@@ -19,7 +21,9 @@ def connect(profile: ConnectionProfile | None = None, **kwargs: Any) -> Generato
 
     conn_args: dict[str, Any] = {
         "host": kwargs.get("host", "localhost"),
-        "port": int(kwargs.get("port", 3306)) if kwargs.get("port") is not None else 3306,
+        "port": int(kwargs.get("port", 3306))
+        if kwargs.get("port") is not None
+        else 3306,
         "user": kwargs.get("user", "root"),
         "password": kwargs.get("password", ""),
         "database": kwargs.get("database"),

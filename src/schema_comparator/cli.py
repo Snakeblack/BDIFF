@@ -95,7 +95,9 @@ def _run_routine_validation(
     )
 
     patterns = [p.lower() for p in (exclude_routines or [])]
-    mode_str = "solo lectura" if read_only else "recompilación mutante (sp_refreshsqlmodule)"
+    mode_str = (
+        "solo lectura" if read_only else "recompilación mutante (sp_refreshsqlmodule)"
+    )
     print(f"\n🔍 Ejecutando validación de rutinas [{mode_str}]...")
     has_errors = False
 
@@ -107,7 +109,8 @@ def _run_routine_validation(
                     targets = enumerate_routines(conn)
                     if patterns:
                         targets = tuple(
-                            t for t in targets
+                            t
+                            for t in targets
                             if not any(pat in t.object_name.lower() for pat in patterns)
                         )
                     if read_only:
@@ -118,16 +121,24 @@ def _run_routine_validation(
                     failures = [r for r in results if not r.is_success]
                     if failures:
                         has_errors = True
-                        print(f"❌ Perfil '{profile.name}': {len(failures)} objeto(s) con fallos:")
+                        print(
+                            f"❌ Perfil '{profile.name}': {len(failures)} objeto(s) con fallos:"
+                        )
                         for f in failures:
                             proc_name = getattr(f, "routine", f).object_name
                             err_msg = getattr(f, "error_message", "Error")
-                            print(f"   - [{getattr(f, 'routine', f).schema_name}].[{proc_name}]: {err_msg}")
+                            print(
+                                f"   - [{getattr(f, 'routine', f).schema_name}].[{proc_name}]: {err_msg}"
+                            )
                     else:
-                        print(f"✅ Perfil '{profile.name}': todas las rutinas evaluadas están correctas ({len(results)} verificadas).")
+                        print(
+                            f"✅ Perfil '{profile.name}': todas las rutinas evaluadas están correctas ({len(results)} verificadas)."
+                        )
             except Exception as exc:
                 has_errors = True
-                print(f"⚠️ Perfil '{profile.name}': error al conectar o validar rutinas: {exc}")
+                print(
+                    f"⚠️ Perfil '{profile.name}': error al conectar o validar rutinas: {exc}"
+                )
 
     return has_errors
 
@@ -153,13 +164,17 @@ def main(argv: list[str] | None = None) -> int:
             args.tui, profiles, exclude_tables
         )
         if render_summary is not None:
-            write_reports(result, render_summary=render_summary, generate_reports=do_generate)
+            write_reports(
+                result, render_summary=render_summary, generate_reports=do_generate
+            )
         else:
             write_reports(result, generate_reports=do_generate)
 
         validation_failed = False
         if args.validate_routines:
-            validation_failed = _run_routine_validation(profiles, exclude_routines=exclude_routines, read_only=True)
+            validation_failed = _run_routine_validation(
+                profiles, exclude_routines=exclude_routines, read_only=True
+            )
 
         if args.refresh_modules or args.verify_sps:
             if not args.yes:
@@ -169,7 +184,9 @@ def main(argv: list[str] | None = None) -> int:
                     file=sys.stderr,
                 )
                 return 1
-            v_fail = _run_routine_validation(profiles, exclude_routines=exclude_routines, read_only=False)
+            v_fail = _run_routine_validation(
+                profiles, exclude_routines=exclude_routines, read_only=False
+            )
             validation_failed = validation_failed or v_fail
 
         if bool(result.entries) or validation_failed:

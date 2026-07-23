@@ -50,7 +50,9 @@ class ProviderRegistry:
         """Get provider by ID or raise ProviderNotFoundError."""
         provider = self.get(provider_id)
         if provider is None:
-            raise ProviderNotFoundError(f"No database provider registered for {provider_id!r}")
+            raise ProviderNotFoundError(
+                f"No database provider registered for {provider_id!r}"
+            )
         return provider
 
     def list_providers(self) -> list[str]:
@@ -105,6 +107,3 @@ def get_default_registry() -> ProviderRegistry:
     registry.register_factory("mariadb", _load_mariadb_provider)
     registry.register_factory("oracle", _load_oracle_provider)
     return registry
-
-
-

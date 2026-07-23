@@ -1,6 +1,10 @@
 """Shared fixture helper for comparison-engine unit tests."""
 
-from schema_comparator.discovery.models import ColumnSnapshot, SchemaSnapshot, TableSnapshot
+from schema_comparator.discovery.models import (
+    ColumnSnapshot,
+    SchemaSnapshot,
+    TableSnapshot,
+)
 
 
 def make_snapshot(profile_name: str, *tables: tuple[str, str]) -> SchemaSnapshot:
@@ -55,4 +59,6 @@ def make_snapshot_with_tables(
 ) -> SchemaSnapshot:
     """Build a SchemaSnapshot from already-constructed TableSnapshots —
     used by column-level fixtures that need real column data."""
-    return SchemaSnapshot(profile_name=profile_name, provider_id="sqlserver", tables=tuple(tables))
+    return SchemaSnapshot(
+        profile_name=profile_name, provider_id="sqlserver", tables=tuple(tables)
+    )

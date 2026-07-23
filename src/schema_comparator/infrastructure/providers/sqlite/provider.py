@@ -24,7 +24,9 @@ class SqliteProvider:
         """Validate SQLite profile settings."""
         profile_parser.validate_sqlite_profile(profile)
 
-    def capabilities(self, profile: ConnectionProfile | None = None) -> ProviderCapabilities:
+    def capabilities(
+        self, profile: ConnectionProfile | None = None
+    ) -> ProviderCapabilities:
         """Return capabilities supported by SQLite."""
         return ProviderCapabilities(
             provider_id="sqlite",

@@ -26,7 +26,15 @@ def test_export_excel_header_row_lists_compared_profiles() -> None:
 
     header = [cell.value for cell in ws[1]]
 
-    assert header == ["Esquema", "Tabla", "Columna", "Tipo de diferencia", "a", "b", "c"]
+    assert header == [
+        "Esquema",
+        "Tabla",
+        "Columna",
+        "Tipo de diferencia",
+        "a",
+        "b",
+        "c",
+    ]
 
 
 def test_export_excel_one_row_per_finding() -> None:
@@ -41,9 +49,7 @@ def test_export_excel_missing_column_row_shows_present_side_attributes() -> None
     wb = _load(export_excel(comparison_result_with_findings()))
     ws = wb["Diferencias"]
 
-    row = next(
-        r for r in ws.iter_rows(min_row=2, values_only=True) if r[2] == "notes"
-    )
+    row = next(r for r in ws.iter_rows(min_row=2, values_only=True) if r[2] == "notes")
     # Esquema, Tabla, Columna, Tipo, a, b, c
     assert row[3] == "Columna faltante"
     assert row[4] == "varchar(255), NULL"
@@ -62,9 +68,19 @@ def test_export_excel_table_missing_from_multiple_profiles_is_a_single_row() -> 
     result = ComparisonResult(
         compared_profiles=("catalog", "orders", "warehouse", "analytics"),
         entries=(
-            MissingTable(schema_name="dbo", table_name="Products", missing_from_profile="orders"),
-            MissingTable(schema_name="dbo", table_name="Products", missing_from_profile="warehouse"),
-            MissingTable(schema_name="dbo", table_name="Products", missing_from_profile="analytics"),
+            MissingTable(
+                schema_name="dbo", table_name="Products", missing_from_profile="orders"
+            ),
+            MissingTable(
+                schema_name="dbo",
+                table_name="Products",
+                missing_from_profile="warehouse",
+            ),
+            MissingTable(
+                schema_name="dbo",
+                table_name="Products",
+                missing_from_profile="analytics",
+            ),
         ),
     )
 
@@ -75,7 +91,16 @@ def test_export_excel_table_missing_from_multiple_profiles_is_a_single_row() -> 
     row = next(ws.iter_rows(min_row=2, values_only=True))
     # Esquema, Tabla, Columna, Tipo, catalog, orders, warehouse, analytics
     # openpyxl round-trips an empty-string cell value as None.
-    assert row == ("dbo", "Products", None, "Tabla faltante", None, "\u274c", "\u274c", "\u274c")
+    assert row == (
+        "dbo",
+        "Products",
+        None,
+        "Tabla faltante",
+        None,
+        "\u274c",
+        "\u274c",
+        "\u274c",
+    )
 
 
 def test_export_excel_legend_sheet_lists_all_diff_categories() -> None:

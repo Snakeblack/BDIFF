@@ -17,7 +17,9 @@ def _profiles():
 def test_cli_main_invokes_write_reports_after_run_comparison() -> None:
     fake_result = MagicMock(name="ComparisonResult")
     with (
-        patch("schema_comparator.cli.load_profiles", return_value=_profiles()) as m_load,
+        patch(
+            "schema_comparator.cli.load_profiles", return_value=_profiles()
+        ) as m_load,
         patch(
             "schema_comparator.cli.run_comparison", return_value=fake_result
         ) as m_run_comparison,
@@ -26,7 +28,9 @@ def test_cli_main_invokes_write_reports_after_run_comparison() -> None:
         main(["--config", "config.local.yaml"])
 
     m_load.assert_called_once_with("config.local.yaml")
-    m_run_comparison.assert_called_once_with(_profiles(), ComparisonFilters(excluded_tables=(), excluded_routines=()))
+    m_run_comparison.assert_called_once_with(
+        _profiles(), ComparisonFilters(excluded_tables=(), excluded_routines=())
+    )
     m_write.assert_called_once_with(fake_result, generate_reports=True)
 
 

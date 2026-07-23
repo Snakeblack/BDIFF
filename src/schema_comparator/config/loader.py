@@ -24,7 +24,9 @@ class _DuplicateKeyLoader(yaml.SafeLoader):
     """A SafeLoader that raises on exact-duplicate mapping keys."""
 
 
-def _no_duplicate_keys(loader: yaml.SafeLoader, node: yaml.Node, deep: bool = False) -> dict:
+def _no_duplicate_keys(
+    loader: yaml.SafeLoader, node: yaml.Node, deep: bool = False
+) -> dict:
     seen: set[object] = set()
     for key_node, _ in node.value:
         key = loader.construct_object(key_node, deep=deep)
@@ -84,7 +86,9 @@ def load_profiles(config_path: str | os.PathLike[str]) -> list[ConnectionProfile
 
         if isinstance(entry, dict):
             raw_provider = entry.get("provider")
-            provider = str(raw_provider).strip() if raw_provider is not None else "sqlserver"
+            provider = (
+                str(raw_provider).strip() if raw_provider is not None else "sqlserver"
+            )
             if not provider:
                 provider = "sqlserver"
 

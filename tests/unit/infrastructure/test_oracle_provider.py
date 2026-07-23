@@ -7,12 +7,13 @@ from schema_comparator.config.models import ConnectionProfile
 from schema_comparator.domain.comparison.models import ColumnAttributes
 from schema_comparator.infrastructure.providers.oracle import OracleProvider
 from schema_comparator.infrastructure.providers.oracle.ddl_renderer import (
-    format_oracle_column_definition,
     format_oracle_data_type,
     generate_oracle_script,
     quote_identifier,
 )
-from schema_comparator.infrastructure.providers.oracle.introspector import build_snapshot
+from schema_comparator.infrastructure.providers.oracle.introspector import (
+    build_snapshot,
+)
 from schema_comparator.infrastructure.providers.oracle.profile_parser import (
     parse_oracle_options,
     validate_oracle_profile,
@@ -42,7 +43,10 @@ def test_quote_identifier():
 
 
 def test_profile_validation_and_parsing():
-    profile = ConnectionProfile(name="oracle_db", connection_string="Server=db.example.com;Port=1521;Service_Name=ORCL;Uid=hr;Pwd=secret;")
+    profile = ConnectionProfile(
+        name="oracle_db",
+        connection_string="Server=db.example.com;Port=1521;Service_Name=ORCL;Uid=hr;Pwd=secret;",
+    )
     validate_oracle_profile(profile)
     opts = parse_oracle_options(profile)
     assert opts["host"] == "db.example.com"
@@ -51,7 +55,9 @@ def test_profile_validation_and_parsing():
     assert opts["user"] == "hr"
     assert opts["password"] == "secret"
 
-    invalid_port = ConnectionProfile(name="bad_port", connection_string="Server=localhost;Port=invalid;")
+    invalid_port = ConnectionProfile(
+        name="bad_port", connection_string="Server=localhost;Port=invalid;"
+    )
     with pytest.raises(ProfileValidationError):
         parse_oracle_options(invalid_port)
 
@@ -75,15 +81,29 @@ def test_introspector_build_snapshot():
 
 
 def test_oracle_data_type_formatting():
-    number_attrs = ColumnAttributes(data_type="NUMBER", character_maximum_length=None, numeric_precision=10, numeric_scale=2, is_nullable=False)
+    number_attrs = ColumnAttributes(
+        data_type="NUMBER",
+        character_maximum_length=None,
+        numeric_precision=10,
+        numeric_scale=2,
+        is_nullable=False,
+    )
     assert format_oracle_data_type(number_attrs) == "NUMBER(10, 2)"
 
-    varchar_attrs = ColumnAttributes(data_type="VARCHAR2", character_maximum_length=50, numeric_precision=None, numeric_scale=None, is_nullable=True)
+    varchar_attrs = ColumnAttributes(
+        data_type="VARCHAR2",
+        character_maximum_length=50,
+        numeric_precision=None,
+        numeric_scale=None,
+        is_nullable=True,
+    )
     assert format_oracle_data_type(varchar_attrs) == "VARCHAR2(50)"
 
 
 def test_generate_oracle_script():
-    profile = ConnectionProfile(name="dev_oracle", connection_string="Server=localhost;", provider="oracle")
+    profile = ConnectionProfile(
+        name="dev_oracle", connection_string="Server=localhost;", provider="oracle"
+    )
     col_attrs = ColumnAttributes(
         data_type="VARCHAR2",
         character_maximum_length=100,
@@ -92,20 +112,59 @@ def test_generate_oracle_script():
         is_nullable=False,
     )
     missing_tables = [
-        ("HR", "DEPARTMENTS", [("DEPARTMENT_ID", ColumnAttributes(data_type="NUMBER", character_maximum_length=None, numeric_precision=4, numeric_scale=0, is_nullable=False))]),
+        (
+            "HR",
+            "DEPARTMENTS",
+            [
+                (
+                    "DEPARTMENT_ID",
+                    ColumnAttributes(
+                        data_type="NUMBER",
+                        character_maximum_length=None,
+                        numeric_precision=4,
+                        numeric_scale=0,
+                        is_nullable=False,
+                    ),
+                )
+            ],
+        ),
     ]
-    missing_cols = [("HR", "EMPLOYEES", "SALARY", ColumnAttributes(data_type="NUMBER", character_maximum_length=None, numeric_precision=8, numeric_scale=2, is_nullable=True))]
+    missing_cols = [
+        (
+            "HR",
+            "EMPLOYEES",
+            "SALARY",
+            ColumnAttributes(
+                data_type="NUMBER",
+                character_maximum_length=None,
+                numeric_precision=8,
+                numeric_scale=2,
+                is_nullable=True,
+            ),
+        )
+    ]
     discrepant_cols = [
         (
             "HR",
             "EMPLOYEES",
             "EMAIL",
-            ColumnAttributes(data_type="VARCHAR2", character_maximum_length=50, numeric_precision=None, numeric_scale=None, is_nullable=True),
+            ColumnAttributes(
+                data_type="VARCHAR2",
+                character_maximum_length=50,
+                numeric_precision=None,
+                numeric_scale=None,
+                is_nullable=True,
+            ),
             col_attrs,
         )
     ]
 
-    script = generate_oracle_script(profile, missing_tables, missing_cols, discrepant_cols)
+    script = generate_oracle_script(
+        profile, missing_tables, missing_cols, discrepant_cols
+    )
     assert 'CREATE TABLE "HR"."DEPARTMENTS"' in script
     assert 'ALTER TABLE "HR"."EMPLOYEES" ADD ("SALARY" NUMBER(8, 2) NULL);' in script
-    assert 'ALTER TABLE "HR"."EMPLOYEES" MODIFY ("EMAIL" VARCHAR2(100) NOT NULL);' in script
+    assert (
+        'ALTER TABLE "HR"."EMPLOYEES" MODIFY ("EMAIL" VARCHAR2(100) NOT NULL);'
+        in script
+    )

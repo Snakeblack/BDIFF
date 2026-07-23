@@ -9,9 +9,11 @@ from schema_comparator.compare.consolidation import (
     ColumnDeletionResolution,
     TableDeletionResolution,
     TableResolution,
+    write_sql_scripts,
+)
+from schema_comparator.infrastructure.providers.sqlserver.ddl_renderer import (
     format_sql_column_definition,
     generate_ddl_for_profile,
-    write_sql_scripts,
 )
 from schema_comparator.compare.models import ColumnAttributes, NamedColumnAttributes
 from schema_comparator.config.models import ConnectionProfile
@@ -72,7 +74,9 @@ def test_format_sql_column_definition_simple_type() -> None:
     assert format_sql_column_definition(attrs) == "int NOT NULL"
 
 
-def test_format_sql_column_definition_integer_with_numeric_precision_and_scale() -> None:
+def test_format_sql_column_definition_integer_with_numeric_precision_and_scale() -> (
+    None
+):
     attrs = ColumnAttributes(
         data_type="int",
         character_maximum_length=None,
@@ -110,11 +114,13 @@ def test_generate_ddl_for_profile_missing_column() -> None:
         profiles_to_update=("profileA", "profileB"),
         is_missing_column=True,
     )
-    
+
     ts = datetime.datetime(2026, 7, 14, 12, 0, 0)
-    profile_a = ConnectionProfile(name="profileA", connection_string="Database=real_db_a;")
+    profile_a = ConnectionProfile(
+        name="profileA", connection_string="Database=real_db_a;"
+    )
     ddl_a = generate_ddl_for_profile([res], profile_a, timestamp=ts)
-    
+
     assert "USE [real_db_a];" in ddl_a
     assert "BEGIN TRANSACTION;" in ddl_a
     assert "IF NOT EXISTS (" in ddl_a
@@ -122,7 +128,9 @@ def test_generate_ddl_for_profile_missing_column() -> None:
     assert "COMMIT TRANSACTION;" in ddl_a
     assert "-- Generado por BDIFF el 2026-07-14 12:00:00" in ddl_a
 
-    profile_c = ConnectionProfile(name="profileC", connection_string="Database=real_db_c;")
+    profile_c = ConnectionProfile(
+        name="profileC", connection_string="Database=real_db_c;"
+    )
     ddl_c = generate_ddl_for_profile([res], profile_c, timestamp=ts)
     assert "No se requieren cambios para este perfil." in ddl_c
 
@@ -143,14 +151,18 @@ def test_generate_ddl_for_profile_column_mismatch() -> None:
         profiles_to_update=("profileB",),
         is_missing_column=False,
     )
-    
+
     ts = datetime.datetime(2026, 7, 14, 12, 0, 0)
-    profile_b = ConnectionProfile(name="profileB", connection_string="Initial Catalog=real_db_b;")
+    profile_b = ConnectionProfile(
+        name="profileB", connection_string="Initial Catalog=real_db_b;"
+    )
     ddl_b = generate_ddl_for_profile([res], profile_b, timestamp=ts)
-    
+
     assert "USE [real_db_b];" in ddl_b
     assert "IF EXISTS (" in ddl_b
-    assert "ALTER TABLE [dbo].[users] ALTER COLUMN [email] varchar(255) NOT NULL;" in ddl_b
+    assert (
+        "ALTER TABLE [dbo].[users] ALTER COLUMN [email] varchar(255) NOT NULL;" in ddl_b
+    )
 
 
 def test_write_sql_scripts_creates_files() -> None:
@@ -179,36 +191,56 @@ def test_write_sql_scripts_creates_files() -> None:
     )
 
     ts = datetime.datetime(2026, 7, 14, 12, 0, 0)
-    profile_a = ConnectionProfile(name="profileA", connection_string="Database=real_db_a;")
-    profile_b = ConnectionProfile(name="profileB", connection_string="Database=real_db_b;")
-    
+    profile_a = ConnectionProfile(
+        name="profileA", connection_string="Database=real_db_a;"
+    )
+    profile_b = ConnectionProfile(
+        name="profileB", connection_string="Database=real_db_b;"
+    )
+
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
-        written_files = write_sql_scripts([res1, res2], tmp_path, [profile_a, profile_b], timestamp=ts)
-        
+        written_files = write_sql_scripts(
+            [res1, res2], tmp_path, [profile_a, profile_b], timestamp=ts
+        )
+
         assert len(written_files) == 3
-        
+
         file_a = tmp_path / "scripts-db" / "20260714_120000" / "profileA.sql"
         file_b = tmp_path / "scripts-db" / "20260714_120000" / "profileB.sql"
         report_file = tmp_path / "scripts-db" / "20260714_120000" / "impact_report.md"
-        
+
         assert file_a.exists()
         assert file_b.exists()
         assert report_file.exists()
-        
+
         content_a = file_a.read_text(encoding="utf-8")
         content_b = file_b.read_text(encoding="utf-8")
         report_content = report_file.read_text(encoding="utf-8")
-        
-        assert "USE [real_db_a];" in content_a
-        assert "EXEC sys.sp_executesql N'ALTER TABLE [dbo].[users] ADD [age] int NULL;'" in content_a
-        assert "EXEC sys.sp_executesql N'UPDATE [dbo].[users] SET [age] = 0 WHERE [age] IS NULL;'" in content_a
-        assert "EXEC sys.sp_executesql N'ALTER TABLE [dbo].[users] ALTER COLUMN [age] int NOT NULL;'" in content_a
-        
-        assert "USE [real_db_b];" in content_b
-        assert "ALTER TABLE [dbo].[users] ALTER COLUMN [email] int NOT NULL;" in content_b
 
-        assert "# Reporte de Impacto en Procedimientos Almacenados y Objetos DB" in report_content
+        assert "USE [real_db_a];" in content_a
+        assert (
+            "EXEC sys.sp_executesql N'ALTER TABLE [dbo].[users] ADD [age] int NULL;'"
+            in content_a
+        )
+        assert (
+            "EXEC sys.sp_executesql N'UPDATE [dbo].[users] SET [age] = 0 WHERE [age] IS NULL;'"
+            in content_a
+        )
+        assert (
+            "EXEC sys.sp_executesql N'ALTER TABLE [dbo].[users] ALTER COLUMN [age] int NOT NULL;'"
+            in content_a
+        )
+
+        assert "USE [real_db_b];" in content_b
+        assert (
+            "ALTER TABLE [dbo].[users] ALTER COLUMN [email] int NOT NULL;" in content_b
+        )
+
+        assert (
+            "# Reporte de Impacto en Procedimientos Almacenados y Objetos DB"
+            in report_content
+        )
         assert "sys.sql_expression_dependencies" in report_content
 
 
@@ -238,8 +270,12 @@ def test_generate_ddl_for_profile_missing_table() -> None:
     )
 
     ts = datetime.datetime(2026, 7, 14, 12, 0, 0)
-    profile_b = ConnectionProfile(name="profileB", connection_string="Database=real_db_b;")
-    ddl_b = generate_ddl_for_profile([], profile_b, timestamp=ts, table_resolutions=[tres])
+    profile_b = ConnectionProfile(
+        name="profileB", connection_string="Database=real_db_b;"
+    )
+    ddl_b = generate_ddl_for_profile(
+        [], profile_b, timestamp=ts, table_resolutions=[tres]
+    )
 
     assert "USE [real_db_b];" in ddl_b
     assert "IF NOT EXISTS (" in ddl_b
@@ -258,7 +294,9 @@ def test_generate_ddl_for_profile_table_deletion() -> None:
     )
 
     ts = datetime.datetime(2026, 7, 14, 12, 0, 0)
-    profile_b = ConnectionProfile(name="profileB", connection_string="Database=real_db_b;")
+    profile_b = ConnectionProfile(
+        name="profileB", connection_string="Database=real_db_b;"
+    )
     ddl_b = generate_ddl_for_profile(
         [], profile_b, timestamp=ts, table_deletions=[deletion]
     )
@@ -278,7 +316,9 @@ def test_generate_ddl_for_profile_column_deletion() -> None:
     )
 
     ts = datetime.datetime(2026, 7, 14, 12, 0, 0)
-    profile_b = ConnectionProfile(name="profileB", connection_string="Database=real_db_b;")
+    profile_b = ConnectionProfile(
+        name="profileB", connection_string="Database=real_db_b;"
+    )
     ddl_b = generate_ddl_for_profile(
         [], profile_b, timestamp=ts, column_deletions=[deletion]
     )
@@ -287,7 +327,10 @@ def test_generate_ddl_for_profile_column_deletion() -> None:
     assert "JOIN sys.objects o ON c.object_id = o.object_id" in ddl_b
     assert "JOIN sys.schemas s ON o.schema_id = s.schema_id" in ddl_b
     assert "DROP COLUMN [obsolete_code];" in ddl_b
-    assert "Columna [obsolete_code] eliminada con exito de [dbo].[legacy_products]." in ddl_b
+    assert (
+        "Columna [obsolete_code] eliminada con exito de [dbo].[legacy_products]."
+        in ddl_b
+    )
     assert "BEGIN TRANSACTION;" in ddl_b
     assert "COMMIT TRANSACTION;" in ddl_b
 
@@ -301,13 +344,20 @@ def test_write_sql_scripts_with_column_deletion_includes_affected_profile() -> N
     )
 
     ts = datetime.datetime(2026, 7, 14, 12, 0, 0)
-    profile_a = ConnectionProfile(name="profileA", connection_string="Database=real_db_a;")
-    profile_b = ConnectionProfile(name="profileB", connection_string="Database=real_db_b;")
+    profile_a = ConnectionProfile(
+        name="profileA", connection_string="Database=real_db_a;"
+    )
+    profile_b = ConnectionProfile(
+        name="profileB", connection_string="Database=real_db_b;"
+    )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
         written_files = write_sql_scripts(
-            [], tmp_path, [profile_a, profile_b], timestamp=ts,
+            [],
+            tmp_path,
+            [profile_a, profile_b],
+            timestamp=ts,
             column_deletions=[deletion],
         )
 
@@ -328,23 +378,26 @@ def test_write_sql_scripts_with_table_resolution() -> None:
     tres = TableResolution(
         schema_name="dbo",
         table_name="products",
-        columns=(
-            NamedColumnAttributes(name="id", attributes=id_attrs),
-        ),
+        columns=(NamedColumnAttributes(name="id", attributes=id_attrs),),
         profiles_to_update=("profileB",),
     )
 
     ts = datetime.datetime(2026, 7, 14, 12, 0, 0)
-    profile_a = ConnectionProfile(name="profileA", connection_string="Database=real_db_a;")
-    profile_b = ConnectionProfile(name="profileB", connection_string="Database=real_db_b;")
+    profile_a = ConnectionProfile(
+        name="profileA", connection_string="Database=real_db_a;"
+    )
+    profile_b = ConnectionProfile(
+        name="profileB", connection_string="Database=real_db_b;"
+    )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
-        written_files = write_sql_scripts([], tmp_path, [profile_a, profile_b], timestamp=ts, table_resolutions=[tres])
+        written_files = write_sql_scripts(
+            [], tmp_path, [profile_a, profile_b], timestamp=ts, table_resolutions=[tres]
+        )
 
         assert len(written_files) == 2
         file_b = tmp_path / "scripts-db" / "20260714_120000" / "profileB.sql"
         assert file_b.exists()
         content_b = file_b.read_text(encoding="utf-8")
         assert "CREATE TABLE [dbo].[products] (" in content_b
-

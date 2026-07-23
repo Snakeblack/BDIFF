@@ -12,12 +12,9 @@ from schema_comparator.compare.models import (
     ColumnMismatch,
     ComparisonResult,
     DiffEntry,
-    ForeignKeyMismatch,
-    IndexMismatch,
     MissingColumn,
     MissingProcedure,
     MissingTable,
-    PrimaryKeyMismatch,
     ProcedureMismatch,
 )
 from schema_comparator.report.attributes import format_attributes
@@ -58,13 +55,14 @@ def build_tree_data(result: ComparisonResult) -> TreeData:
     return TreeData(groups=tuple(groups))
 
 
-
 def leaf_label(entry: DiffEntry) -> str:
     """Format leaf label text for tree view."""
     if isinstance(entry, MissingTable):
         return f"tabla faltante (de {entry.missing_from_profile})"
     if isinstance(entry, MissingColumn):
-        return f"{entry.column_name}: columna faltante (de {entry.missing_from_profile})"
+        return (
+            f"{entry.column_name}: columna faltante (de {entry.missing_from_profile})"
+        )
     if isinstance(entry, MissingProcedure):
         return f"{entry.procedure_name}: rutina/SP faltante (de {entry.missing_from_profile})"
     if isinstance(entry, ProcedureMismatch):
@@ -98,7 +96,10 @@ def detail_text(entry: DiffEntry) -> str:
         lines = [f"Procedimiento Almacenado / Rutina: {schema}.{proc}", ""]
         lines.append(f"  Faltante en el perfil '{entry.missing_from_profile}'")
         for profile, p_snap in entry.present_procedures:
-            params_str = ", ".join(f"{p.name} {p.data_type}" for p in p_snap.parameters) or "sin parámetros"
+            params_str = (
+                ", ".join(f"{p.name} {p.data_type}" for p in p_snap.parameters)
+                or "sin parámetros"
+            )
             lines.append(f"  {profile}: {p_snap.routine_type} ({params_str})")
         return "\n".join(lines)
 
@@ -107,9 +108,16 @@ def detail_text(entry: DiffEntry) -> str:
         lines = [f"Procedimiento Almacenado / Rutina: {schema}.{proc}", ""]
         lines.append("Discrepancias detectadas entre perfiles:")
         for profile, p_snap in entry.values_by_profile:
-            params_str = ", ".join(f"{p.name} {p.data_type}" for p in p_snap.parameters) or "sin parámetros"
-            hash_str = p_snap.definition_hash[:10] if p_snap.definition_hash else "sin hash"
-            lines.append(f"  {profile}: {p_snap.routine_type} | Params: [{params_str}] | Hash: {hash_str}")
+            params_str = (
+                ", ".join(f"{p.name} {p.data_type}" for p in p_snap.parameters)
+                or "sin parámetros"
+            )
+            hash_str = (
+                p_snap.definition_hash[:10] if p_snap.definition_hash else "sin hash"
+            )
+            lines.append(
+                f"  {profile}: {p_snap.routine_type} | Params: [{params_str}] | Hash: {hash_str}"
+            )
         return "\n".join(lines)
 
     if isinstance(entry, MissingTable):
@@ -118,7 +126,6 @@ def detail_text(entry: DiffEntry) -> str:
 
     schema, table = entry.qualified_name
     return f"{schema}.{table}: {type(entry).__name__}"
-
 
 
 def header_counts(result: ComparisonResult) -> dict[type, int]:
@@ -135,7 +142,11 @@ def header_text(result: ComparisonResult) -> str:
     counts = header_counts(result)
     profiles = ", ".join(result.compared_profiles)
     parts = [f"Perfiles comparados: {profiles}"]
-    parts += [f"{label}: {counts[t]}" for t, label in _TYPE_LABELS.items() if counts[t] > 0 or t in (MissingTable, MissingColumn, ColumnMismatch)]
+    parts += [
+        f"{label}: {counts[t]}"
+        for t, label in _TYPE_LABELS.items()
+        if counts[t] > 0 or t in (MissingTable, MissingColumn, ColumnMismatch)
+    ]
     return " | ".join(parts)
 
 
@@ -151,5 +162,3 @@ def entry_matches(entry: DiffEntry, filter_text: str) -> bool:
     elif isinstance(entry, (MissingProcedure, ProcedureMismatch)):
         haystacks.append(entry.procedure_name)
     return any(needle in haystack.lower() for haystack in haystacks)
-
-

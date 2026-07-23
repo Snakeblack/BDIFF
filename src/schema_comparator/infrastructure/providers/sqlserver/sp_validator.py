@@ -7,7 +7,6 @@ import pyodbc
 
 from schema_comparator.domain.errors import (
     ModuleEnumerationError,
-    ModuleRefreshError,
     SignatureInspectionError,
 )
 
@@ -176,10 +175,15 @@ def get_signature_status(
         cursor.close()
 
 
-def is_object_signed(conn: pyodbc.Connection, schema_name: str, object_name: str) -> bool:
+def is_object_signed(
+    conn: pyodbc.Connection, schema_name: str, object_name: str
+) -> bool:
     """Fail-closed helper checking if an object is signed."""
     try:
-        return get_signature_status(conn, schema_name, object_name) != SignatureStatus.UNSIGNED
+        return (
+            get_signature_status(conn, schema_name, object_name)
+            != SignatureStatus.UNSIGNED
+        )
     except SignatureInspectionError:
         return True
 
@@ -199,7 +203,9 @@ def enumerate_routines(conn: pyodbc.Connection) -> tuple[RoutineIdentity, ...]:
         rows = cursor.fetchall()
         return tuple(RoutineIdentity(schema_name=r[0], object_name=r[1]) for r in rows)
     except pyodbc.Error as exc:
-        raise ModuleEnumerationError("Error enumerando rutinas de la base de datos") from exc
+        raise ModuleEnumerationError(
+            "Error enumerando rutinas de la base de datos"
+        ) from exc
     finally:
         cursor.close()
 
@@ -217,7 +223,9 @@ def validate_routines_read_only(
 
     for target in objects_to_validate:
         try:
-            signed_status = get_signature_status(conn, target.schema_name, target.object_name)
+            signed_status = get_signature_status(
+                conn, target.schema_name, target.object_name
+            )
         except SignatureInspectionError as exc:
             try:
                 conn.rollback()
@@ -294,7 +302,9 @@ def refresh_modules_mutating(
 
     for target in objects_to_refresh:
         try:
-            sig_status = get_signature_status(conn, target.schema_name, target.object_name)
+            sig_status = get_signature_status(
+                conn, target.schema_name, target.object_name
+            )
         except SignatureInspectionError as exc:
             try:
                 conn.rollback()
@@ -320,9 +330,13 @@ def refresh_modules_mutating(
             continue
 
         try:
-            cursor.execute("EXEC sys.sp_refreshsqlmodule @name = ?", (target.qualified_name,))
+            cursor.execute(
+                "EXEC sys.sp_refreshsqlmodule @name = ?", (target.qualified_name,)
+            )
             conn.commit()
-            results.append(ModuleRefreshResult.success(target, signature_status=sig_status))
+            results.append(
+                ModuleRefreshResult.success(target, signature_status=sig_status)
+            )
         except pyodbc.Error as exc:
             try:
                 conn.rollback()

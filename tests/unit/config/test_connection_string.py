@@ -10,7 +10,11 @@ Grows across phases 2-9 of the connection-string-translation change:
 
 import pytest
 
-from schema_comparator.config.connection_string import _split_token, _tokenize, translate
+from schema_comparator.config.connection_string import (
+    _split_token,
+    _tokenize,
+    translate,
+)
 from schema_comparator.config.errors import ProfileValidationError
 
 # --- Phase 2: brace-aware tokenizer ------------------------------------------
@@ -23,7 +27,10 @@ def test_plain_semicolon_delimited_string_splits_into_segments() -> None:
 
 def test_trailing_semicolon_and_double_semicolon_drop_empty_segments() -> None:
     assert _tokenize("Server=srv;", name="x") == ["Server=srv"]
-    assert _tokenize("Server=srv;;Database=Db;", name="x") == ["Server=srv", "Database=Db"]
+    assert _tokenize("Server=srv;;Database=Db;", name="x") == [
+        "Server=srv",
+        "Database=Db",
+    ]
 
 
 def test_braced_driver_value_kept_intact_as_one_token() -> None:
@@ -58,7 +65,9 @@ def test_split_token_returns_none_when_no_equals_present() -> None:
 
 
 def test_pure_ado_net_string_is_fully_translated() -> None:
-    result = translate("Data Source=srv1;Initial Catalog=CatalogDB;User Id=u;Password=p;", name="x")
+    result = translate(
+        "Data Source=srv1;Initial Catalog=CatalogDB;User Id=u;Password=p;", name="x"
+    )
     assert "Server=srv1" in result
     assert "Database=CatalogDB" in result
     assert "UID=u" in result
@@ -80,7 +89,9 @@ def test_odbc_passthrough_keywords_are_left_unchanged(keyword: str) -> None:
 
 
 @pytest.mark.parametrize("value", ["True", "sspi", "yes", "SSPI", "TRUE"])
-def test_integrated_security_true_variants_map_to_trusted_connection(value: str) -> None:
+def test_integrated_security_true_variants_map_to_trusted_connection(
+    value: str,
+) -> None:
     result = translate(f"Server=srv;Integrated Security={value};", name="x")
     assert "Trusted_Connection=yes" in result
     assert "Integrated Security" not in result
@@ -95,7 +106,9 @@ def test_integrated_security_false_variants_are_dropped(value: str) -> None:
 
 @pytest.mark.parametrize("keyword", ["Encrypt", "TrustServerCertificate"])
 @pytest.mark.parametrize("value", ["True", "TRUE", "true"])
-def test_adonet_true_boolean_value_normalized_to_odbc_yes(keyword: str, value: str) -> None:
+def test_adonet_true_boolean_value_normalized_to_odbc_yes(
+    keyword: str, value: str
+) -> None:
     # The Microsoft ODBC Driver for SQL Server only documents yes/mandatory
     # and no/optional (plus strict, 18.0+) as valid Encrypt/
     # TrustServerCertificate values -- ADO.NET's True/False literals raise
@@ -109,7 +122,9 @@ def test_adonet_true_boolean_value_normalized_to_odbc_yes(keyword: str, value: s
 
 @pytest.mark.parametrize("keyword", ["Encrypt", "TrustServerCertificate"])
 @pytest.mark.parametrize("value", ["False", "FALSE", "false"])
-def test_adonet_false_boolean_value_normalized_to_odbc_no(keyword: str, value: str) -> None:
+def test_adonet_false_boolean_value_normalized_to_odbc_no(
+    keyword: str, value: str
+) -> None:
     result = translate(f"Server=srv;{keyword}={value};", name="x")
     assert f"{keyword}=no" in result
     assert f"{keyword}={value}" not in result
@@ -117,7 +132,9 @@ def test_adonet_false_boolean_value_normalized_to_odbc_no(keyword: str, value: s
 
 @pytest.mark.parametrize("keyword", ["Encrypt", "TrustServerCertificate"])
 @pytest.mark.parametrize("value", ["yes", "no", "Mandatory", "Optional", "Strict"])
-def test_already_odbc_boolean_value_passes_through_unchanged(keyword: str, value: str) -> None:
+def test_already_odbc_boolean_value_passes_through_unchanged(
+    keyword: str, value: str
+) -> None:
     # Values already in ODBC's own vocabulary (including the 18.0+-only
     # Mandatory/Optional/Strict literals) must never be rewritten.
     result = translate(f"Server=srv;{keyword}={value};", name="x")

@@ -24,7 +24,9 @@ class MySqlProvider:
         """Validate MySQL connection profile."""
         profile_parser.validate_mysql_family_profile(profile, provider_name="mysql")
 
-    def capabilities(self, profile: ConnectionProfile | None = None) -> ProviderCapabilities:
+    def capabilities(
+        self, profile: ConnectionProfile | None = None
+    ) -> ProviderCapabilities:
         """Return capabilities supported by MySQL."""
         return ProviderCapabilities(
             provider_id="mysql",

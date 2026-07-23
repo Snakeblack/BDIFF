@@ -6,7 +6,7 @@ from pathlib import Path
 from rich.markup import escape
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, DataTable, Footer, Header, Label, Static
 
@@ -58,7 +58,9 @@ class ConfirmRefreshModal(ModalScreen[bool]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="confirm-dialog"):
-            yield Label("⚠️ Operación Mutante: Recompilación de Metadatos", id="confirm-title")
+            yield Label(
+                "⚠️ Operación Mutante: Recompilación de Metadatos", id="confirm-title"
+            )
             yield Static(
                 f"Estás a punto de ejecutar [bold]sp_refreshsqlmodule[/bold] sobre {self._routine_count} rutinas no firmadas.\n\n"
                 "Esta operación modifica metadatos en la base de datos y requiere permisos ALTER.\n"
@@ -80,8 +82,12 @@ class ProcedureVerificationScreen(Screen):
 
     BINDINGS = [
         Binding("escape", "app.pop_screen", "Volver", show=True),
-        Binding("v,V", "validate_read_only", "Validar dependencias (Lectura)", show=True),
-        Binding("r,R", "request_module_refresh", "Actualizar metadatos (Mutante)", show=True),
+        Binding(
+            "v,V", "validate_read_only", "Validar dependencias (Lectura)", show=True
+        ),
+        Binding(
+            "r,R", "request_module_refresh", "Actualizar metadatos (Mutante)", show=True
+        ),
         Binding("s,S", "generate_script", "Generar Script SQL", show=True),
     ]
 
@@ -143,17 +149,26 @@ class ProcedureVerificationScreen(Screen):
             id="sp-header-container",
         )
         yield DataTable(id="sp-table")
-        yield Label("V: Validar dependencias (Solo lectura) | R: Recompilar (Mutante) | S: Guardar script", id="sp-status")
+        yield Label(
+            "V: Validar dependencias (Solo lectura) | R: Recompilar (Mutante) | S: Guardar script",
+            id="sp-status",
+        )
         with Horizontal(id="sp-actions"):
-            yield Button("Validar dependencias [V]", id="btn-validate", variant="primary")
-            yield Button("Recompilar metadatos [R]", id="btn-refresh", variant="warning")
+            yield Button(
+                "Validar dependencias [V]", id="btn-validate", variant="primary"
+            )
+            yield Button(
+                "Recompilar metadatos [R]", id="btn-refresh", variant="warning"
+            )
             yield Button("Generar Script SQL [S]", id="btn-script", variant="success")
             yield Button("Volver [Esc]", id="btn-close")
         yield Footer()
 
     def on_mount(self) -> None:
         table = self.query_one(DataTable)
-        table.add_columns("Perfil", "Esquema", "Rutina / Vista", "Estado Dependencias", "Detalle")
+        table.add_columns(
+            "Perfil", "Esquema", "Rutina / Vista", "Estado Dependencias", "Detalle"
+        )
         table.cursor_type = "row"
         self.action_validate_read_only()
 
@@ -161,10 +176,14 @@ class ProcedureVerificationScreen(Screen):
         """Run read-only dependency validation across profiles without mutating DB."""
         status_labels = self.query("#sp-status")
         if status_labels:
-            status_labels.first().update("🔍 Ejecutando validación de dependencias (solo lectura)...")
+            status_labels.first().update(
+                "🔍 Ejecutando validación de dependencias (solo lectura)..."
+            )
         self.run_worker(self._do_validate_read_only, exclusive=True, thread=True)
 
-    def _do_validate_read_only(self) -> tuple[dict[str, tuple[RoutineValidationResult, ...]], int]:
+    def _do_validate_read_only(
+        self,
+    ) -> tuple[dict[str, tuple[RoutineValidationResult, ...]], int]:
         results_map: dict[str, tuple[RoutineValidationResult, ...]] = {}
         total_count = 0
         for profile in self._profiles:
@@ -175,8 +194,12 @@ class ProcedureVerificationScreen(Screen):
                         targets = enumerate_routines(conn)
                         if self._exclude_patterns:
                             targets = tuple(
-                                t for t in targets
-                                if not any(pat in t.object_name.lower() for pat in self._exclude_patterns)
+                                t
+                                for t in targets
+                                if not any(
+                                    pat in t.object_name.lower()
+                                    for pat in self._exclude_patterns
+                                )
                             )
                         total_count += len(targets)
                         res = validate_routines_read_only(conn, targets)
@@ -244,7 +267,9 @@ class ProcedureVerificationScreen(Screen):
         if total_targets == 0:
             status_labels = self.query("#sp-status")
             if status_labels:
-                status_labels.first().update("[bold yellow]⚠️ No se han encontrado rutinas para recompilar. Ejecuta primero la validación [V].[/bold yellow]")
+                status_labels.first().update(
+                    "[bold yellow]⚠️ No se han encontrado rutinas para recompilar. Ejecuta primero la validación [V].[/bold yellow]"
+                )
             return
 
         def _on_modal_result(confirmed: bool) -> None:
@@ -256,7 +281,9 @@ class ProcedureVerificationScreen(Screen):
     def _execute_module_refresh(self) -> None:
         status_labels = self.query("#sp-status")
         if status_labels:
-            status_labels.first().update("🔄 Recompilando metadatos en bases de datos con confirmación...")
+            status_labels.first().update(
+                "🔄 Recompilando metadatos en bases de datos con confirmación..."
+            )
         self.run_worker(self._do_refresh_modules, exclusive=True, thread=True)
 
     def _do_refresh_modules(self) -> None:
@@ -269,8 +296,12 @@ class ProcedureVerificationScreen(Screen):
                         targets = enumerate_routines(conn)
                         if self._exclude_patterns:
                             targets = tuple(
-                                t for t in targets
-                                if not any(pat in t.object_name.lower() for pat in self._exclude_patterns)
+                                t
+                                for t in targets
+                                if not any(
+                                    pat in t.object_name.lower()
+                                    for pat in self._exclude_patterns
+                                )
                             )
                         res = refresh_modules_mutating(conn, targets)
                         results_map[profile.name] = res
@@ -331,7 +362,9 @@ class ProcedureVerificationScreen(Screen):
 
         if not self._validation_results and not self._refresh_results:
             if status_labels:
-                status_labels.first().update("[bold red]❌ Realiza una validación [V] antes de generar el script.[/bold red]")
+                status_labels.first().update(
+                    "[bold red]❌ Realiza una validación [V] antes de generar el script.[/bold red]"
+                )
             return
 
         ts = datetime.datetime.now()
@@ -351,26 +384,41 @@ class ProcedureVerificationScreen(Screen):
             script_lines.append(f"-- Perfil / BD: {profile_name}")
             for r in res_list:
                 routine = getattr(r, "routine", None)
-                if not routine or routine.schema_name == "SYSTEM" or routine.object_name == "CONNECT":
+                if (
+                    not routine
+                    or routine.schema_name == "SYSTEM"
+                    or routine.object_name == "CONNECT"
+                ):
                     continue
-                if getattr(r, "signature_status", SignatureStatus.UNSIGNED) != SignatureStatus.UNSIGNED:
-                    script_lines.append(f"-- OMITIDO (Firmado): [{routine.schema_name}].[{routine.object_name}]")
+                if (
+                    getattr(r, "signature_status", SignatureStatus.UNSIGNED)
+                    != SignatureStatus.UNSIGNED
+                ):
+                    script_lines.append(
+                        f"-- OMITIDO (Firmado): [{routine.schema_name}].[{routine.object_name}]"
+                    )
                     continue
                 # For T-SQL N'...' string literal parameter in sp_refreshsqlmodule:
                 # String literals double single-quotes (' -> ''). Do NOT double right-brackets (] -> ]]) inside a string literal.
                 safe_sch = routine.schema_name.replace("'", "''")
                 safe_obj = routine.object_name.replace("'", "''")
-                script_lines.append(f"EXEC sys.sp_refreshsqlmodule @name = N'[{safe_sch}].[{safe_obj}]';")
+                script_lines.append(
+                    f"EXEC sys.sp_refreshsqlmodule @name = N'[{safe_sch}].[{safe_obj}]';"
+                )
             script_lines.append("")
 
         script_path = output_dir / "repair_sps.sql"
         try:
             script_path.write_text("\n".join(script_lines), encoding="utf-8")
             if status_labels:
-                status_labels.first().update(f"✅ Script de reparación generado en: scripts-db/{folder_name}/repair_sps.sql")
+                status_labels.first().update(
+                    f"✅ Script de reparación generado en: scripts-db/{folder_name}/repair_sps.sql"
+                )
         except Exception as exc:
             if status_labels:
-                status_labels.first().update(f"[bold red]❌ Error al escribir el script de reparación: {exc}[/bold red]")
+                status_labels.first().update(
+                    f"[bold red]❌ Error al escribir el script de reparación: {exc}[/bold red]"
+                )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "btn-validate":

@@ -4,12 +4,23 @@ from schema_comparator.application.services.extraction import (
     SchemaExtractionService,
     default_extract_schema as extract_schema,
 )
-from schema_comparator.application.use_cases.compare_profiles import CompareProfilesUseCase
+from schema_comparator.application.use_cases.compare_profiles import (
+    CompareProfilesUseCase,
+)
 from schema_comparator.compare.engine import compare_snapshots
 from schema_comparator.config.models import ConnectionProfile
-from schema_comparator.discovery.filters import filter_excluded_routines, filter_excluded_tables
-from schema_comparator.domain.comparison.models import ComparisonFilters, ComparisonResult
-from schema_comparator.infrastructure.providers import ProviderRegistry, get_default_registry
+from schema_comparator.discovery.filters import (
+    filter_excluded_routines,
+    filter_excluded_tables,
+)
+from schema_comparator.domain.comparison.models import (
+    ComparisonFilters,
+    ComparisonResult,
+)
+from schema_comparator.infrastructure.providers import (
+    ProviderRegistry,
+    get_default_registry,
+)
 
 __all__ = [
     "build_compare_profiles_use_case",

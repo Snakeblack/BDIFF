@@ -1,9 +1,15 @@
 """Unit tests for CompareProfilesUseCase."""
 
-from schema_comparator.application.use_cases.compare_profiles import CompareProfilesUseCase
+from schema_comparator.application.use_cases.compare_profiles import (
+    CompareProfilesUseCase,
+)
 from schema_comparator.config.models import ConnectionProfile
 from schema_comparator.domain.comparison.models import ComparisonResult
-from schema_comparator.domain.schema.models import ColumnSnapshot, SchemaSnapshot, TableSnapshot
+from schema_comparator.domain.schema.models import (
+    ColumnSnapshot,
+    SchemaSnapshot,
+    TableSnapshot,
+)
 
 
 def test_compare_profiles_use_case_execution() -> None:

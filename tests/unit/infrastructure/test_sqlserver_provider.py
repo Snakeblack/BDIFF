@@ -6,8 +6,13 @@ import pyodbc
 import pytest
 
 from schema_comparator.config.models import ConnectionProfile
-from schema_comparator.discovery.errors import ConnectionFailedError, MetadataAccessError
-from schema_comparator.infrastructure.providers.sqlserver.provider import SqlServerProvider
+from schema_comparator.discovery.errors import (
+    ConnectionFailedError,
+    MetadataAccessError,
+)
+from schema_comparator.infrastructure.providers.sqlserver.provider import (
+    SqlServerProvider,
+)
 
 
 def test_sql_server_provider_metadata() -> None:
@@ -24,7 +29,9 @@ def test_sql_server_provider_validate_empty_connection_string() -> None:
 
 def test_sql_server_provider_introspect_success() -> None:
     provider = SqlServerProvider()
-    profile = ConnectionProfile(name="test_prof", connection_string="Server=srv;Database=db;")
+    profile = ConnectionProfile(
+        name="test_prof", connection_string="Server=srv;Database=db;"
+    )
 
     mock_cursor = MagicMock()
     mock_cursor.fetchall.return_value = [
@@ -34,7 +41,9 @@ def test_sql_server_provider_introspect_success() -> None:
     mock_conn = MagicMock()
     mock_conn.cursor.return_value = mock_cursor
 
-    with patch("schema_comparator.infrastructure.providers.sqlserver.connection.connect") as mock_connect:
+    with patch(
+        "schema_comparator.infrastructure.providers.sqlserver.connection.connect"
+    ) as mock_connect:
         mock_connect.return_value.__enter__.return_value = mock_conn
 
         snapshot = provider.introspect(profile)
@@ -47,7 +56,9 @@ def test_sql_server_provider_introspect_success() -> None:
 
 def test_sql_server_provider_introspect_query_error() -> None:
     provider = SqlServerProvider()
-    profile = ConnectionProfile(name="test_prof", connection_string="Server=srv;Database=db;")
+    profile = ConnectionProfile(
+        name="test_prof", connection_string="Server=srv;Database=db;"
+    )
 
     mock_cursor = MagicMock()
     mock_cursor.execute.side_effect = pyodbc.Error("42000", "Permission denied")
@@ -55,7 +66,9 @@ def test_sql_server_provider_introspect_query_error() -> None:
     mock_conn = MagicMock()
     mock_conn.cursor.return_value = mock_cursor
 
-    with patch("schema_comparator.infrastructure.providers.sqlserver.connection.connect") as mock_connect:
+    with patch(
+        "schema_comparator.infrastructure.providers.sqlserver.connection.connect"
+    ) as mock_connect:
         mock_connect.return_value.__enter__.return_value = mock_conn
 
         with pytest.raises(MetadataAccessError):
@@ -66,9 +79,13 @@ def test_sql_server_provider_introspect_query_error() -> None:
 
 def test_sql_server_provider_introspect_connect_error() -> None:
     provider = SqlServerProvider()
-    profile = ConnectionProfile(name="test_prof", connection_string="Server=srv;Database=db;")
+    profile = ConnectionProfile(
+        name="test_prof", connection_string="Server=srv;Database=db;"
+    )
 
-    with patch("schema_comparator.infrastructure.providers.sqlserver.connection.connect") as mock_connect:
+    with patch(
+        "schema_comparator.infrastructure.providers.sqlserver.connection.connect"
+    ) as mock_connect:
         mock_connect.side_effect = pyodbc.Error("08001", "Unable to connect")
 
         with pytest.raises(ConnectionFailedError):

@@ -7,7 +7,9 @@ from schema_comparator.infrastructure.providers.registry import (
     ProviderNotFoundError,
     ProviderRegistry,
 )
-from schema_comparator.infrastructure.providers.sqlserver.provider import SqlServerProvider
+from schema_comparator.infrastructure.providers.sqlserver.provider import (
+    SqlServerProvider,
+)
 
 
 def test_provider_registry_register_and_require() -> None:
@@ -38,12 +40,16 @@ def test_provider_registry_lazy_factory_import_error() -> None:
 
     registry.register_factory("oracle", failing_factory)
 
-    with pytest.raises(DriverUnavailableError, match="El proveedor 'oracle' requiere dependencias"):
+    with pytest.raises(
+        DriverUnavailableError, match="El proveedor 'oracle' requiere dependencias"
+    ):
         registry.get("oracle")
 
 
 def test_provider_registry_missing_provider_raises_error() -> None:
     registry = ProviderRegistry()
     assert registry.get("unknown") is None
-    with pytest.raises(ProviderNotFoundError, match="No database provider registered for 'unknown'"):
+    with pytest.raises(
+        ProviderNotFoundError, match="No database provider registered for 'unknown'"
+    ):
         registry.require("unknown")

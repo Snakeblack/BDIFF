@@ -140,5 +140,7 @@ class SchemaSnapshot:
     procedures: tuple[ProcedureSnapshot, ...] = ()
     provider_id: str = "sqlserver"
     extracted_features: frozenset[SchemaFeature] = field(
-        default_factory=lambda: frozenset({SchemaFeature.TABLES, SchemaFeature.ROUTINES})
+        default_factory=lambda: frozenset(
+            {SchemaFeature.TABLES, SchemaFeature.ROUTINES}
+        )
     )

@@ -40,7 +40,9 @@ def generate_all_reports(result: ComparisonResult, *, out=sys.stdout) -> None:
 
     try:
         html_str = render_html(result)
-        html_path = _report_path(f"schema-diff-report-{timestamp}.html", subfolder=subfolder)
+        html_path = _report_path(
+            f"schema-diff-report-{timestamp}.html", subfolder=subfolder
+        )
         with open(html_path, "w", encoding="utf-8", newline="") as f:
             f.write(html_str)
         print(f"Reporte HTML generado: {html_path}", file=out)
@@ -51,7 +53,9 @@ def generate_all_reports(result: ComparisonResult, *, out=sys.stdout) -> None:
         if html_str is None:
             raise PdfExportError("omitido: la generación de HTML no se completó")
         pdf_bytes = export_pdf(html_str)
-        pdf_path = _report_path(f"schema-diff-report-{timestamp}.pdf", subfolder=subfolder)
+        pdf_path = _report_path(
+            f"schema-diff-report-{timestamp}.pdf", subfolder=subfolder
+        )
         with open(pdf_path, "wb") as f:
             f.write(pdf_bytes)
         print(f"Reporte PDF generado: {pdf_path}", file=out)
@@ -60,7 +64,9 @@ def generate_all_reports(result: ComparisonResult, *, out=sys.stdout) -> None:
 
     try:
         xlsx_bytes = export_excel(result)
-        xlsx_path = _report_path(f"schema-diff-report-{timestamp}.xlsx", subfolder=subfolder)
+        xlsx_path = _report_path(
+            f"schema-diff-report-{timestamp}.xlsx", subfolder=subfolder
+        )
         with open(xlsx_path, "wb") as f:
             f.write(xlsx_bytes)
         print(f"Reporte Excel generado: {xlsx_path}", file=out)

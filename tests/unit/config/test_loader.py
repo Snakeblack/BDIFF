@@ -23,7 +23,9 @@ from schema_comparator.config.loader import load_profiles
 from schema_comparator.config.models import ConnectionProfile
 
 
-def _write_yaml(tmp_path: pathlib.Path, content: str, filename: str = "config.local.yaml") -> pathlib.Path:
+def _write_yaml(
+    tmp_path: pathlib.Path, content: str, filename: str = "config.local.yaml"
+) -> pathlib.Path:
     path = tmp_path / filename
     path.write_text(content, encoding="utf-8")
     return path
@@ -55,7 +57,10 @@ databases:
 
 @pytest.mark.parametrize("count", [1, 3, 20])
 def test_arbitrary_number_of_profiles_load(tmp_path: pathlib.Path, count: int) -> None:
-    lines = [f'  service-{i}: "Driver=X;Server=srv{i};Database=Db{i};UID=u;PWD=p;"' for i in range(count)]
+    lines = [
+        f'  service-{i}: "Driver=X;Server=srv{i};Database=Db{i};UID=u;PWD=p;"'
+        for i in range(count)
+    ]
     content = "databases:\n" + "\n".join(lines) + "\n"
     config_path = _write_yaml(tmp_path, content)
 
@@ -69,10 +74,14 @@ def test_load_profiles_with_no_args_raises_type_error() -> None:
         load_profiles()  # type: ignore[call-arg]
 
 
-def test_load_profiles_from_arbitrary_named_file_and_location(tmp_path: pathlib.Path) -> None:
+def test_load_profiles_from_arbitrary_named_file_and_location(
+    tmp_path: pathlib.Path,
+) -> None:
     nested_dir = tmp_path / "nested" / "dir"
     nested_dir.mkdir(parents=True)
-    content = 'databases:\n  only-service: "Driver=X;Server=srv;Database=Db;UID=u;PWD=p;"\n'
+    content = (
+        'databases:\n  only-service: "Driver=X;Server=srv;Database=Db;UID=u;PWD=p;"\n'
+    )
     config_path = _write_yaml(nested_dir, content, filename="my-weird-name.yml")
 
     profiles = load_profiles(config_path)
@@ -84,7 +93,9 @@ def test_load_profiles_from_arbitrary_named_file_and_location(tmp_path: pathlib.
 # --- Phase 4: missing-file / malformed-YAML fail-fast ------------------------
 
 
-def test_missing_file_raises_config_file_not_found_error(tmp_path: pathlib.Path) -> None:
+def test_missing_file_raises_config_file_not_found_error(
+    tmp_path: pathlib.Path,
+) -> None:
     missing_path = tmp_path / "does-not-exist.yaml"
 
     with pytest.raises(ConfigFileNotFoundError) as exc_info:
@@ -108,7 +119,9 @@ def test_malformed_yaml_raises_config_parse_error(tmp_path: pathlib.Path) -> Non
     assert "unterminated" not in message.lower()
 
 
-def test_non_mapping_top_level_raises_config_parse_error(tmp_path: pathlib.Path) -> None:
+def test_non_mapping_top_level_raises_config_parse_error(
+    tmp_path: pathlib.Path,
+) -> None:
     content = "- just\n- a\n- list\n"
     config_path = _write_yaml(tmp_path, content)
 
@@ -116,7 +129,9 @@ def test_non_mapping_top_level_raises_config_parse_error(tmp_path: pathlib.Path)
         load_profiles(config_path)
 
 
-def test_missing_databases_key_raises_config_parse_error(tmp_path: pathlib.Path) -> None:
+def test_missing_databases_key_raises_config_parse_error(
+    tmp_path: pathlib.Path,
+) -> None:
     content = "not_databases:\n  a: b\n"
     config_path = _write_yaml(tmp_path, content)
 
@@ -124,7 +139,9 @@ def test_missing_databases_key_raises_config_parse_error(tmp_path: pathlib.Path)
         load_profiles(config_path)
 
 
-def test_databases_not_a_mapping_raises_config_parse_error(tmp_path: pathlib.Path) -> None:
+def test_databases_not_a_mapping_raises_config_parse_error(
+    tmp_path: pathlib.Path,
+) -> None:
     content = "databases:\n  - a\n  - b\n"
     config_path = _write_yaml(tmp_path, content)
 
@@ -146,7 +163,9 @@ def test_leading_and_trailing_whitespace_is_trimmed(tmp_path: pathlib.Path) -> N
     assert profiles[0].connection_string == "Driver=X;PWD=y;"
 
 
-def test_exact_duplicate_yaml_key_raises_profile_validation_error(tmp_path: pathlib.Path) -> None:
+def test_exact_duplicate_yaml_key_raises_profile_validation_error(
+    tmp_path: pathlib.Path,
+) -> None:
     content = (
         "databases:\n"
         '  catalog-service: "Driver=X;PWD=first;"\n'
@@ -182,7 +201,9 @@ def test_blank_name_raises_profile_validation_error(tmp_path: pathlib.Path) -> N
     assert "PWD" not in str(exc_info.value)
 
 
-def test_blank_connection_string_raises_profile_validation_error(tmp_path: pathlib.Path) -> None:
+def test_blank_connection_string_raises_profile_validation_error(
+    tmp_path: pathlib.Path,
+) -> None:
     content = 'databases:\n  catalog-service: "   "\n'
     config_path = _write_yaml(tmp_path, content)
 
@@ -196,10 +217,14 @@ def test_blank_connection_string_raises_profile_validation_error(tmp_path: pathl
 
 _SENTINEL_USER = "SECRET_USER"
 _SENTINEL_PASS = "SECRET_PASS"
-_SENTINEL_CONN = f"Driver=X;UID={_SENTINEL_USER};PWD={_SENTINEL_PASS};Trusted_Connection=yes;"
+_SENTINEL_CONN = (
+    f"Driver=X;UID={_SENTINEL_USER};PWD={_SENTINEL_PASS};Trusted_Connection=yes;"
+)
 
 
-def _assert_no_sentinel_leakage(exc: Exception, caplog: pytest.LogCaptureFixture) -> None:
+def _assert_no_sentinel_leakage(
+    exc: Exception, caplog: pytest.LogCaptureFixture
+) -> None:
     for text in (str(exc), repr(exc)):
         assert _SENTINEL_USER not in text
         assert _SENTINEL_PASS not in text
@@ -208,14 +233,18 @@ def _assert_no_sentinel_leakage(exc: Exception, caplog: pytest.LogCaptureFixture
     assert _SENTINEL_PASS not in log_text
 
 
-def test_no_leakage_on_missing_file(tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_no_leakage_on_missing_file(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
     missing_path = tmp_path / "does-not-exist.yaml"
     with pytest.raises(ConfigFileNotFoundError) as exc_info:
         load_profiles(missing_path)
     _assert_no_sentinel_leakage(exc_info.value, caplog)
 
 
-def test_no_leakage_on_malformed_yaml(tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_no_leakage_on_malformed_yaml(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
     content = f'databases: [unterminated "{_SENTINEL_CONN}"'
     config_path = _write_yaml(tmp_path, content)
     with pytest.raises(ConfigParseError) as exc_info:
@@ -223,7 +252,9 @@ def test_no_leakage_on_malformed_yaml(tmp_path: pathlib.Path, caplog: pytest.Log
     _assert_no_sentinel_leakage(exc_info.value, caplog)
 
 
-def test_no_leakage_on_empty_name(tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_no_leakage_on_empty_name(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
     content = f'databases:\n  "   ": "{_SENTINEL_CONN}"\n'
     config_path = _write_yaml(tmp_path, content)
     with pytest.raises(ProfileValidationError) as exc_info:
@@ -231,7 +262,9 @@ def test_no_leakage_on_empty_name(tmp_path: pathlib.Path, caplog: pytest.LogCapt
     _assert_no_sentinel_leakage(exc_info.value, caplog)
 
 
-def test_no_leakage_on_duplicate_name(tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_no_leakage_on_duplicate_name(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
     content = (
         "databases:\n"
         f'  Catalog-Service: "{_SENTINEL_CONN}"\n'
@@ -324,7 +357,9 @@ def test_load_profiles_does_not_import_pyodbc_or_open_sockets(
 # --- Phase 7: connection-string translation integration ---------------------
 
 
-def test_ado_net_connection_string_is_translated_to_odbc_form(tmp_path: pathlib.Path) -> None:
+def test_ado_net_connection_string_is_translated_to_odbc_form(
+    tmp_path: pathlib.Path,
+) -> None:
     content = (
         "databases:\n"
         '  catalog-service: "Data Source=srv1;Initial Catalog=CatalogDB;User Id=u;Password=p;"\n'

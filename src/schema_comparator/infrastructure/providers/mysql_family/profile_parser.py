@@ -7,7 +7,9 @@ from schema_comparator.config.errors import ProfileValidationError
 from schema_comparator.config.models import ConnectionProfile
 
 
-def validate_mysql_family_profile(profile: ConnectionProfile, provider_name: str = "mysql") -> None:
+def validate_mysql_family_profile(
+    profile: ConnectionProfile, provider_name: str = "mysql"
+) -> None:
     """Validate connection profile options for MySQL / MariaDB."""
     if not profile.connection_string and "database" not in profile.options:
         raise ProfileValidationError(

@@ -9,10 +9,14 @@ import datetime
 from pathlib import Path
 
 from schema_comparator.compare.consolidation import (
-    ColumnAttributes,
     ColumnResolution,
-    NamedColumnAttributes,
     TableResolution,
+)
+from schema_comparator.domain.comparison.models import (
+    ColumnAttributes,
+    NamedColumnAttributes,
+)
+from schema_comparator.infrastructure.providers.sqlserver.ddl_renderer import (
     generate_ddl_for_profile,
 )
 from schema_comparator.config.models import ConnectionProfile
@@ -39,7 +43,9 @@ def test_characterization_add_column_ddl() -> None:
     )
 
     ts = datetime.datetime(2026, 7, 14, 12, 0, 0)
-    profile_a = ConnectionProfile(name="profileA", connection_string="Database=real_db_a;")
+    profile_a = ConnectionProfile(
+        name="profileA", connection_string="Database=real_db_a;"
+    )
     ddl = generate_ddl_for_profile([res], profile_a, timestamp=ts)
 
     golden_file = GOLDEN_DIR / "expected_add_column.sql"
@@ -74,8 +80,12 @@ def test_characterization_create_table_ddl() -> None:
     )
 
     ts = datetime.datetime(2026, 7, 14, 12, 0, 0)
-    profile_b = ConnectionProfile(name="profileB", connection_string="Database=real_db_b;")
-    ddl = generate_ddl_for_profile([], profile_b, timestamp=ts, table_resolutions=[tres])
+    profile_b = ConnectionProfile(
+        name="profileB", connection_string="Database=real_db_b;"
+    )
+    ddl = generate_ddl_for_profile(
+        [], profile_b, timestamp=ts, table_resolutions=[tres]
+    )
 
     golden_file = GOLDEN_DIR / "expected_create_table.sql"
     expected = golden_file.read_text(encoding="utf-8").strip()

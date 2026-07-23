@@ -33,7 +33,9 @@ _NON_PARAMETRIC_TYPES = {
 
 def extract_database_name(connection_string: str) -> str | None:
     """Extract the database name (Initial Catalog or Database) from a SQL Server connection string."""
-    pattern = re.compile(r'(?:database|initial catalog|db)\s*=\s*([^;]+)', re.IGNORECASE)
+    pattern = re.compile(
+        r"(?:database|initial catalog|db)\s*=\s*([^;]+)", re.IGNORECASE
+    )
     match = pattern.search(connection_string)
     if match:
         return match.group(1).strip().strip("'\"[]").strip()
@@ -45,10 +47,20 @@ def format_sql_column_definition(attrs: ColumnAttributes) -> str:
     clean_type = re.sub(r"\s*\(.*\)", "", attrs.data_type).strip()
     data_type_lower = clean_type.lower()
 
-    if attrs.character_maximum_length is not None and data_type_lower not in _NON_PARAMETRIC_TYPES:
-        size = "MAX" if attrs.character_maximum_length == -1 else str(attrs.character_maximum_length)
+    if (
+        attrs.character_maximum_length is not None
+        and data_type_lower not in _NON_PARAMETRIC_TYPES
+    ):
+        size = (
+            "MAX"
+            if attrs.character_maximum_length == -1
+            else str(attrs.character_maximum_length)
+        )
         type_str = f"{clean_type}({size})"
-    elif attrs.numeric_precision is not None and data_type_lower in ("decimal", "numeric"):
+    elif attrs.numeric_precision is not None and data_type_lower in (
+        "decimal",
+        "numeric",
+    ):
         if attrs.numeric_scale is not None:
             type_str = f"{clean_type}({attrs.numeric_precision}, {attrs.numeric_scale})"
         else:
@@ -97,7 +109,13 @@ def _get_default_backfill_literal(attrs: ColumnAttributes) -> str:
         return "''"
     if clean_type == "time":
         return "'00:00:00'"
-    if clean_type in ("date", "datetime", "datetime2", "smalldatetime", "datetimeoffset"):
+    if clean_type in (
+        "date",
+        "datetime",
+        "datetime2",
+        "smalldatetime",
+        "datetimeoffset",
+    ):
         return "'1900-01-01'"
     if clean_type == "uniqueidentifier":
         return "'00000000-0000-0000-0000-000000000000'"
@@ -136,7 +154,7 @@ def generate_ddl_for_profile(
 
     statements_added = False
 
-    for tres in (table_resolutions or []):
+    for tres in table_resolutions or []:
         if profile.name in tres.profiles_to_update:
             schema_esc = _escape_ident(tres.schema_name)
             table_esc = _escape_ident(tres.table_name)
@@ -296,7 +314,7 @@ def generate_ddl_for_profile(
             lines.append(sql)
             statements_added = True
 
-    for res in (resolutions or []):
+    for res in resolutions or []:
         if profile.name in res.profiles_to_update:
             col_def = format_sql_column_definition(res.target_attributes)
             schema_esc = _escape_ident(res.schema_name)
@@ -310,9 +328,7 @@ def generate_ddl_for_profile(
             col_print = _escape_literal(col_esc)
 
             if res.is_missing_column:
-                add_column_sql = (
-                    f"ALTER TABLE [{schema_esc}].[{table_esc}] ADD [{col_esc}] {col_def};"
-                )
+                add_column_sql = f"ALTER TABLE [{schema_esc}].[{table_esc}] ADD [{col_esc}] {col_def};"
                 add_column_action = f"        {add_column_sql}\n"
                 add_column_follow_up = ""
                 if not res.target_attributes.is_nullable:
@@ -320,16 +336,12 @@ def generate_ddl_for_profile(
                         replace(res.target_attributes, is_nullable=True)
                     )
                     backfill_val = _get_default_backfill_literal(res.target_attributes)
-                    add_column_sql = (
-                        f"ALTER TABLE [{schema_esc}].[{table_esc}] ADD [{col_esc}] {nullable_col_def};"
-                    )
+                    add_column_sql = f"ALTER TABLE [{schema_esc}].[{table_esc}] ADD [{col_esc}] {nullable_col_def};"
                     update_column_sql = (
                         f"UPDATE [{schema_esc}].[{table_esc}] SET [{col_esc}] = {backfill_val} "
                         f"WHERE [{col_esc}] IS NULL;"
                     )
-                    alter_column_sql = (
-                        f"ALTER TABLE [{schema_esc}].[{table_esc}] ALTER COLUMN [{col_esc}] {col_def};"
-                    )
+                    alter_column_sql = f"ALTER TABLE [{schema_esc}].[{table_esc}] ALTER COLUMN [{col_esc}] {col_def};"
                     add_column_action = (
                         f"        EXEC sys.sp_executesql N'{_escape_literal(add_column_sql)}';\n"
                         f"        EXEC sys.sp_executesql N'{_escape_literal(update_column_sql)}';\n"
@@ -384,24 +396,26 @@ def generate_ddl_for_profile(
     if not statements_added:
         lines.append("    PRINT 'No se requieren cambios para este perfil.';")
 
-    lines.extend([
-        "",
-        "    COMMIT TRANSACTION;",
-        "    PRINT 'Transaccion confirmada con exito.';",
-        "END TRY",
-        "BEGIN CATCH",
-        "    IF @@TRANCOUNT > 0",
-        "    BEGIN",
-        "        ROLLBACK TRANSACTION;",
-        "        PRINT 'Transaccion abortada debido a un error.';",
-        "    END",
-        "    DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();",
-        "    DECLARE @ErrorSeverity INT = ERROR_SEVERITY();",
-        "    DECLARE @ErrorState INT = ERROR_STATE();",
-        "    RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);",
-        "END CATCH;",
-        "GO",
-        "",
-    ])
+    lines.extend(
+        [
+            "",
+            "    COMMIT TRANSACTION;",
+            "    PRINT 'Transaccion confirmada con exito.';",
+            "END TRY",
+            "BEGIN CATCH",
+            "    IF @@TRANCOUNT > 0",
+            "    BEGIN",
+            "        ROLLBACK TRANSACTION;",
+            "        PRINT 'Transaccion abortada debido a un error.';",
+            "    END",
+            "    DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();",
+            "    DECLARE @ErrorSeverity INT = ERROR_SEVERITY();",
+            "    DECLARE @ErrorState INT = ERROR_STATE();",
+            "    RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);",
+            "END CATCH;",
+            "GO",
+            "",
+        ]
+    )
 
     return "\n".join(lines)

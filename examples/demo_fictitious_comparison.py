@@ -58,7 +58,9 @@ def build_policies_db() -> SchemaSnapshot:
         columns=(
             _column("id", "int", nullable=False, ordinal=1),
             _column("customer_id", "int", nullable=False, ordinal=2),
-            _column("premium_amount", "decimal", precision=10, scale=2, ordinal=3),  # 10,2
+            _column(
+                "premium_amount", "decimal", precision=10, scale=2, ordinal=3
+            ),  # 10,2
         ),
     )
     return SchemaSnapshot(
@@ -85,7 +87,9 @@ def build_claims_db() -> SchemaSnapshot:
         columns=(
             _column("id", "int", nullable=False, ordinal=1),
             _column("customer_id", "int", nullable=False, ordinal=2),
-            _column("premium_amount", "decimal", precision=12, scale=4, ordinal=3),  # 12,4 (Mismatch)
+            _column(
+                "premium_amount", "decimal", precision=12, scale=4, ordinal=3
+            ),  # 12,4 (Mismatch)
         ),
     )
     return SchemaSnapshot(
@@ -103,7 +107,9 @@ def build_billing_db() -> SchemaSnapshot:
             _column("id", "int", nullable=False, ordinal=1),
             _column("full_name", "nvarchar", length=200, ordinal=2),
             _column("email", "nvarchar", length=320, ordinal=3),
-            _column("loyalty_tier", "nvarchar", length=50, ordinal=4),  # length 50 (Mismatch)
+            _column(
+                "loyalty_tier", "nvarchar", length=50, ordinal=4
+            ),  # length 50 (Mismatch)
         ),
     )
     policies = TableSnapshot(
@@ -112,7 +118,9 @@ def build_billing_db() -> SchemaSnapshot:
         columns=(
             _column("id", "int", nullable=False, ordinal=1),
             _column("customer_id", "int", nullable=False, ordinal=2),
-            _column("premium_amount", "decimal", precision=10, scale=2, ordinal=3),  # 10,2
+            _column(
+                "premium_amount", "decimal", precision=10, scale=2, ordinal=3
+            ),  # 10,2
         ),
     )
     invoices = TableSnapshot(
@@ -138,7 +146,9 @@ def build_reporting_db() -> SchemaSnapshot:
         columns=(
             _column("id", "int", nullable=False, ordinal=1),
             _column("full_name", "nvarchar", length=200, ordinal=2),
-            _column("email", "nvarchar", length=100, ordinal=3),  # length 100 (Mismatch)
+            _column(
+                "email", "nvarchar", length=100, ordinal=3
+            ),  # length 100 (Mismatch)
             # loyalty_tier is missing here
         ),
     )

@@ -55,7 +55,9 @@ ORDER BY s.name, o.name, param.parameter_id
 def _hash_definition(sql: str | None) -> str | None:
     if not sql:
         return None
-    normalized = "\n".join(line.rstrip() for line in sql.replace("\r\n", "\n").strip().splitlines())
+    normalized = "\n".join(
+        line.rstrip() for line in sql.replace("\r\n", "\n").strip().splitlines()
+    )
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
@@ -152,11 +154,17 @@ def build_snapshot(
                 )
 
         for (schema, proc_name), data in sorted(proc_map.items()):
-            params = tuple(sorted(data["params"], key=lambda p: (p.ordinal_position, p.name)))
+            params = tuple(
+                sorted(data["params"], key=lambda p: (p.ordinal_position, p.name))
+            )
             def_sql = data["def_sql"]
             is_enc = data["is_encrypted"]
             if is_enc or (def_sql is None and not is_enc):
-                avail = DefinitionAvailability.ENCRYPTED if is_enc else DefinitionAvailability.NOT_VISIBLE
+                avail = (
+                    DefinitionAvailability.ENCRYPTED
+                    if is_enc
+                    else DefinitionAvailability.NOT_VISIBLE
+                )
                 def_hash = None
             else:
                 avail = DefinitionAvailability.AVAILABLE
@@ -181,7 +189,6 @@ def build_snapshot(
         procedures=tuple(procedures),
         extracted_features=frozenset({SchemaFeature.TABLES, SchemaFeature.ROUTINES}),
     )
-
 
 
 # Alias for backward compatibility

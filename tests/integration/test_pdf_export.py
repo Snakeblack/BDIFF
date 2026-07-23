@@ -5,7 +5,11 @@ so a future CSS change that xhtml2pdf cannot render fails loudly here
 rather than only surfacing as a silent PdfExportError in production."""
 
 from schema_comparator.compare.models import ColumnMismatch, ComparisonResult
-from schema_comparator.compare.models import ColumnAttributes, MissingColumn, MissingTable
+from schema_comparator.compare.models import (
+    ColumnAttributes,
+    MissingColumn,
+    MissingTable,
+)
 from schema_comparator.report.html import render_html
 from schema_comparator.report.pdf import export_pdf
 

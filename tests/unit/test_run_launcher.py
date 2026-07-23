@@ -21,7 +21,10 @@ def test_resolve_venv_python_windows_path(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(os, "name", "nt")
     venv_dir = tmp_path / ".venv"
 
-    assert run_launcher.resolve_venv_python(venv_dir) == venv_dir / "Scripts" / "python.exe"
+    assert (
+        run_launcher.resolve_venv_python(venv_dir)
+        == venv_dir / "Scripts" / "python.exe"
+    )
 
 
 def test_resolve_venv_python_posix_path(monkeypatch, tmp_path) -> None:
@@ -77,7 +80,14 @@ def test_build_pip_install_argv_shape(tmp_path) -> None:
 
 def test_build_relaunch_argv_forwards_cli_args_unmodified(tmp_path) -> None:
     venv_python = tmp_path / ".venv" / "Scripts" / "python.exe"
-    cli_args = ["--config", "config.local.yaml", "--tui", "--exclude-tables", "LOG", "QRTZ"]
+    cli_args = [
+        "--config",
+        "config.local.yaml",
+        "--tui",
+        "--exclude-tables",
+        "LOG",
+        "QRTZ",
+    ]
 
     argv = run_launcher.build_relaunch_argv(venv_python, cli_args)
 
@@ -95,13 +105,17 @@ def test_build_relaunch_argv_forwards_cli_args_unmodified(tmp_path) -> None:
 
 
 def test_main_skips_provisioning_when_venv_ready(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(run_launcher, "resolve_venv_dir", lambda repo_root: tmp_path / ".venv")
+    monkeypatch.setattr(
+        run_launcher, "resolve_venv_dir", lambda repo_root: tmp_path / ".venv"
+    )
     monkeypatch.setattr(run_launcher, "is_venv_ready", lambda venv_dir: True)
     monkeypatch.setattr(run_launcher.Path, "resolve", lambda self: tmp_path / "run.py")
 
     venv_create_calls = []
     monkeypatch.setattr(
-        run_launcher, "venv", type("_M", (), {"create": lambda *a, **k: venv_create_calls.append((a, k))})
+        run_launcher,
+        "venv",
+        type("_M", (), {"create": lambda *a, **k: venv_create_calls.append((a, k))}),
     )
 
     run_calls = []
@@ -125,7 +139,9 @@ def test_main_skips_provisioning_when_venv_ready(tmp_path, monkeypatch) -> None:
 
 
 def test_main_provisions_when_venv_not_ready(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(run_launcher, "resolve_venv_dir", lambda repo_root: tmp_path / ".venv")
+    monkeypatch.setattr(
+        run_launcher, "resolve_venv_dir", lambda repo_root: tmp_path / ".venv"
+    )
     monkeypatch.setattr(run_launcher, "is_venv_ready", lambda venv_dir: False)
     monkeypatch.setattr(run_launcher.Path, "resolve", lambda self: tmp_path / "run.py")
 
@@ -160,7 +176,9 @@ def test_main_provisions_when_venv_not_ready(tmp_path, monkeypatch) -> None:
 
 
 def test_main_exits_with_child_returncode(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(run_launcher, "resolve_venv_dir", lambda repo_root: tmp_path / ".venv")
+    monkeypatch.setattr(
+        run_launcher, "resolve_venv_dir", lambda repo_root: tmp_path / ".venv"
+    )
     monkeypatch.setattr(run_launcher, "is_venv_ready", lambda venv_dir: True)
     monkeypatch.setattr(run_launcher.Path, "resolve", lambda self: tmp_path / "run.py")
     monkeypatch.setattr(
@@ -177,7 +195,9 @@ def test_main_exits_with_child_returncode(tmp_path, monkeypatch) -> None:
     assert exit_codes == [7]
 
 
-def test_provision_failure_reports_error_and_skips_marker(tmp_path, monkeypatch, capsys) -> None:
+def test_provision_failure_reports_error_and_skips_marker(
+    tmp_path, monkeypatch, capsys
+) -> None:
     venv_dir = tmp_path / ".venv"
 
     def _fake_create(path, with_pip=True):
