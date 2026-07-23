@@ -24,12 +24,18 @@ class SqlServerProvider:
     def introspect(self, profile: ConnectionProfile) -> SchemaSnapshot:
         """Extract schema snapshot from a live SQL Server database."""
         self.validate_profile(profile)
+        proc_rows = []
         try:
             with connection.connect(profile) as conn:
                 cursor = conn.cursor()
                 try:
                     cursor.execute(introspector.CATALOG_QUERY_SQL)
                     rows = cursor.fetchall()
+                    try:
+                        cursor.execute(introspector.PROCEDURES_QUERY_SQL)
+                        proc_rows = cursor.fetchall()
+                    except pyodbc.Error:
+                        proc_rows = []
                 except pyodbc.Error as exc:
                     raise translate_query_error(profile.name, exc) from exc
                 finally:
@@ -37,4 +43,6 @@ class SqlServerProvider:
         except pyodbc.Error as exc:
             raise translate_connect_error(profile.name, exc) from exc
 
-        return introspector.build_snapshot(profile.name, rows)
+        return introspector.build_snapshot(profile.name, rows, proc_rows=proc_rows)
+
+

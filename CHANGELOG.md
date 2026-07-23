@@ -4,6 +4,16 @@ Todas las modificaciones destacables de este proyecto se documentarán en este a
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/), y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [1.2.0] - 2026-07-23
+
+### Añadido
+- Soporte para la extracción, comparación de deriva (drift) y verificación de Procedimientos Almacenados y Rutinas en SQL Server.
+- Modelos de dominio `ParameterSnapshot`, `ProcedureSnapshot`, `MissingProcedure` y `ProcedureMismatch`.
+- Extracción de catálogo en SQL Server vía `sys.objects`, `sys.sql_modules` y `sys.parameters` con hashes de definición SHA-256 normalizados.
+- Módulo de verificación `sp_validator.py` para consulta activa de dependencias y ejecución segura de `sp_refreshsqlmodule`.
+- Opción `--verify-sps` en el CLI para validar la compilación de procedimientos almacenados y vistas en bases de datos SQL Server tras la comparación.
+- Resumen en consola de hallazgos de procedimientos almacenados faltantes o con diferencias de código/parámetros.
+
 ## [1.1.0] - 2026-07-23
 
 ### Añadido

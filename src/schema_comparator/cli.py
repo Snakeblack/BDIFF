@@ -39,6 +39,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Excluye tablas cuyo nombre contenga alguno de estos textos "
         "(no distingue mayúsculas/minúsculas), p. ej. --exclude-tables LOG QRTZ",
     )
+    parser.add_argument(
+        "--verify-sps",
+        action="store_true",
+        help="Ejecuta sp_refreshsqlmodule en SQL Server para verificar que los "
+        "procedimientos y vistas compilen correctamente sin referencias rotas",
+    )
     return parser
 
 
@@ -67,6 +73,34 @@ def _resolve_summary_renderer_and_generate_reports(
     return None, True
 
 
+def _run_sp_verification(profiles: list, exclude_patterns: list[str] | None = None) -> None:
+    from schema_comparator.infrastructure.providers.sqlserver import connection
+    from schema_comparator.infrastructure.providers.sqlserver.sp_validator import verify_sps_with_refresh
+
+    patterns = [p.lower() for p in (exclude_patterns or [])]
+    print("\n🔍 Ejecutando verificación de procedimientos almacenados y vistas (sp_refreshsqlmodule)...")
+    for profile in profiles:
+        provider_name = str(getattr(profile, "provider", "sqlserver")).lower()
+        if provider_name == "sqlserver":
+            try:
+                with connection.connect(profile) as conn:
+                    results = verify_sps_with_refresh(conn)
+                    if patterns:
+                        results = tuple(
+                            r for r in results
+                            if not any(pat in r.object_name.lower() for pat in patterns)
+                        )
+                    failures = [r for r in results if not r.is_success]
+                    if failures:
+                        print(f"❌ Perfil '{profile.name}': {len(failures)} objeto(s) con errores de compilación:")
+                        for f in failures:
+                            print(f"   - [{f.schema_name}].[{f.object_name}]: {f.error_message}")
+                    else:
+                        print(f"✅ Perfil '{profile.name}': todos los procedimientos/vistas compilaron correctamente ({len(results)} verificados).")
+            except Exception as exc:
+                print(f"⚠️ Perfil '{profile.name}': no se pudo conectar o verificar SPs: {exc}")
+
+
 def main(argv: list[str] | None = None) -> None:
     args = build_arg_parser().parse_args(argv)
     profiles = load_profiles(args.config)
@@ -84,6 +118,11 @@ def main(argv: list[str] | None = None) -> None:
         write_reports(result, render_summary=render_summary, generate_reports=do_generate)
     else:
         write_reports(result, generate_reports=do_generate)
+
+    if args.verify_sps:
+        _run_sp_verification(profiles, exclude_patterns=exclude_patterns)
+
+
 
 
 if __name__ == "__main__":
