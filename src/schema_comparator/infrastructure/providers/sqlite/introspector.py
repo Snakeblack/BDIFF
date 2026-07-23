@@ -16,7 +16,9 @@ ORDER BY name;
 """.strip()
 
 
-def _parse_sqlite_data_type(type_str: str) -> tuple[str, int | None, int | None, int | None]:
+def _parse_sqlite_data_type(
+    type_str: str,
+) -> tuple[str, int | None, int | None, int | None]:
     """Parse SQLite native data type string into clean_type, char_len, precision, scale."""
     if not type_str:
         return ("TEXT", None, None, None)
@@ -26,7 +28,7 @@ def _parse_sqlite_data_type(type_str: str) -> tuple[str, int | None, int | None,
         clean_type = upper_type.split("(")[0].strip()
         params_str = upper_type.split("(")[1].split(")")[0].strip()
         params = [p.strip() for p in params_str.split(",") if p.strip().isdigit()]
-        
+
         if clean_type in ("DECIMAL", "NUMERIC", "NUMBER"):
             if len(params) == 1:
                 return (clean_type, None, int(params[0]), None)
@@ -43,7 +45,9 @@ def _parse_sqlite_data_type(type_str: str) -> tuple[str, int | None, int | None,
     return (upper_type, None, None, None)
 
 
-def introspect_sqlite_schema(conn: sqlite3.Connection, profile_name: str) -> SchemaSnapshot:
+def introspect_sqlite_schema(
+    conn: sqlite3.Connection, profile_name: str
+) -> SchemaSnapshot:
     """Extract SchemaSnapshot from an open SQLite connection."""
     cursor = conn.cursor()
     try:
@@ -72,9 +76,13 @@ def introspect_sqlite_schema(conn: sqlite3.Connection, profile_name: str) -> Sch
                 dflt_value = col_row[4]
                 pk = col_row[5]
 
-                clean_type, char_len, num_prec, num_scale = _parse_sqlite_data_type(raw_type)
+                clean_type, char_len, num_prec, num_scale = _parse_sqlite_data_type(
+                    raw_type
+                )
                 # In SQLite, only single-column INTEGER PRIMARY KEY acts as autoincrement ROWID identity
-                is_identity = (pk == 1 and pk_count == 1 and clean_type in ("INTEGER", "INT"))
+                is_identity = (
+                    pk == 1 and pk_count == 1 and clean_type in ("INTEGER", "INT")
+                )
 
                 columns.append(
                     ColumnSnapshot(
@@ -85,7 +93,9 @@ def introspect_sqlite_schema(conn: sqlite3.Connection, profile_name: str) -> Sch
                         numeric_scale=num_scale,
                         is_nullable=(notnull == 0),
                         ordinal_position=cid + 1,
-                        default_expression=str(dflt_value) if dflt_value is not None else None,
+                        default_expression=str(dflt_value)
+                        if dflt_value is not None
+                        else None,
                         is_identity=is_identity,
                     )
                 )
@@ -94,7 +104,9 @@ def introspect_sqlite_schema(conn: sqlite3.Connection, profile_name: str) -> Sch
                 TableSnapshot(
                     schema_name="main",
                     table_name=table_name,
-                    columns=tuple(sorted(columns, key=lambda c: (c.ordinal_position, c.name))),
+                    columns=tuple(
+                        sorted(columns, key=lambda c: (c.ordinal_position, c.name))
+                    ),
                 )
             )
 

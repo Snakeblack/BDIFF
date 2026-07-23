@@ -161,9 +161,7 @@ def test_write_reports_isolates_render_summary_failure_from_html_pdf(
     def _boom(result):
         raise RuntimeError("summary boom")
 
-    write_reports(
-        comparison_result_with_findings(), out=out, render_summary=_boom
-    )
+    write_reports(comparison_result_with_findings(), out=out, render_summary=_boom)
 
     output = out.getvalue()
     assert "[ERROR] Fall\u00f3 la generaci\u00f3n del resumen de consola" in output
@@ -247,4 +245,3 @@ def test_write_reports_generate_reports_true_is_unchanged(
 
     assert list(tmp_path.rglob("schema-diff-report-*.html"))
     assert list(tmp_path.rglob("schema-diff-report-*.pdf"))
-

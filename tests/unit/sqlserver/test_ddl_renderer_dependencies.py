@@ -1,12 +1,14 @@
 """Unit tests for Foreign Key and constraint dependency cleanup in SQL Server DDL rendering."""
 
 from schema_comparator.compare.consolidation import (
-    ColumnAttributes,
     ColumnDeletionResolution,
     ColumnResolution,
-    NamedColumnAttributes,
     TableDeletionResolution,
     TableResolution,
+)
+from schema_comparator.domain.comparison.models import (
+    ColumnAttributes,
+    NamedColumnAttributes,
 )
 from schema_comparator.config.models import ConnectionProfile
 from schema_comparator.infrastructure.providers.sqlserver.ddl_renderer import (
@@ -19,13 +21,15 @@ def test_extract_database_name_variations() -> None:
     assert extract_database_name("Database=TestDB;User=sa;") == "TestDB"
     assert extract_database_name("Initial Catalog='My DB';User=sa;") == "My DB"
     assert extract_database_name("db=[Sales_DB];User=sa;") == "Sales_DB"
-    assert extract_database_name("Database = \" Production \";") == "Production"
+    assert extract_database_name('Database = " Production ";') == "Production"
 
 
 def test_generate_ddl_table_deletion_cleans_foreign_keys() -> None:
     profile = ConnectionProfile(name="dev_db", connection_string="Database=TestDB;")
     table_deletions = [
-        TableDeletionResolution(schema_name="dbo", table_name="Orders", profiles_to_update=("dev_db",)),
+        TableDeletionResolution(
+            schema_name="dbo", table_name="Orders", profiles_to_update=("dev_db",)
+        ),
     ]
 
     ddl = generate_ddl_for_profile(
@@ -141,10 +145,20 @@ def test_generate_ddl_not_null_column_backfills_nulls() -> None:
     assert "UPDATE [dbo].[Orders]" in ddl_mod
     assert "SET [CustomerId] = 0" in ddl_mod
     assert "WHERE [CustomerId] IS NULL;" in ddl_mod
-    assert "ALTER TABLE [dbo].[Orders] ALTER COLUMN [CustomerId] int NOT NULL;" in ddl_mod
+    assert (
+        "ALTER TABLE [dbo].[Orders] ALTER COLUMN [CustomerId] int NOT NULL;" in ddl_mod
+    )
 
     ddl_add = generate_ddl_for_profile(resolutions=add_res, profile=profile)
-    assert "EXEC sys.sp_executesql N'ALTER TABLE [dbo].[Orders] ADD [WarehouseId] int NULL;'" in ddl_add
-    assert "EXEC sys.sp_executesql N'UPDATE [dbo].[Orders] SET [WarehouseId] = 0 WHERE [WarehouseId] IS NULL;'" in ddl_add
-    assert "EXEC sys.sp_executesql N'ALTER TABLE [dbo].[Orders] ALTER COLUMN [WarehouseId] int NOT NULL;'" in ddl_add
-
+    assert (
+        "EXEC sys.sp_executesql N'ALTER TABLE [dbo].[Orders] ADD [WarehouseId] int NULL;'"
+        in ddl_add
+    )
+    assert (
+        "EXEC sys.sp_executesql N'UPDATE [dbo].[Orders] SET [WarehouseId] = 0 WHERE [WarehouseId] IS NULL;'"
+        in ddl_add
+    )
+    assert (
+        "EXEC sys.sp_executesql N'ALTER TABLE [dbo].[Orders] ALTER COLUMN [WarehouseId] int NOT NULL;'"
+        in ddl_add
+    )

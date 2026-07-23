@@ -2,7 +2,11 @@
 actual HTML/PDF files to a temp cwd."""
 
 from schema_comparator.compare.models import ColumnMismatch, ComparisonResult
-from schema_comparator.compare.models import ColumnAttributes, MissingColumn, MissingTable
+from schema_comparator.compare.models import (
+    ColumnAttributes,
+    MissingColumn,
+    MissingTable,
+)
 from schema_comparator.report.html import render_html
 from schema_comparator.report.write import write_reports
 
@@ -70,4 +74,6 @@ def test_write_reports_creates_paired_html_and_pdf_files_with_matching_timestamp
     pdf_stem = pdf_files[0].name.removesuffix(".pdf")
     assert html_stem == pdf_stem
 
-    assert html_files[0].read_text(encoding="utf-8").replace("\r\n", "\n") == render_html(result).replace("\r\n", "\n")
+    assert html_files[0].read_text(encoding="utf-8").replace(
+        "\r\n", "\n"
+    ) == render_html(result).replace("\r\n", "\n")

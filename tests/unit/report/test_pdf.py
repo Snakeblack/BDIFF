@@ -15,7 +15,9 @@ def test_export_pdf_returns_bytes_unchanged_on_success() -> None:
         result.err = 0
         return result
 
-    with patch("schema_comparator.report.pdf.pisa.CreatePDF", side_effect=fake_create_pdf):
+    with patch(
+        "schema_comparator.report.pdf.pisa.CreatePDF", side_effect=fake_create_pdf
+    ):
         pdf_bytes = export_pdf("<html><body>hi</body></html>")
 
     assert pdf_bytes == b"%PDF-1.4 fake pdf bytes"

@@ -6,9 +6,24 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Button, Label, ListItem, ListView, RadioButton, RadioSet, SelectionList
+from textual.widgets import (
+    Button,
+    Label,
+    ListItem,
+    ListView,
+    RadioButton,
+    RadioSet,
+    SelectionList,
+)
 
-from schema_comparator.compare.models import ColumnAttributes, ColumnMismatch, DiffEntry, MissingColumn, MissingTable, NamedColumnAttributes
+from schema_comparator.compare.models import (
+    ColumnAttributes,
+    ColumnMismatch,
+    DiffEntry,
+    MissingColumn,
+    MissingTable,
+    NamedColumnAttributes,
+)
 from schema_comparator.report.attributes import format_attributes
 from schema_comparator.config.models import ConnectionProfile
 from schema_comparator.compare.consolidation import ColumnAction, TableAction
@@ -156,19 +171,19 @@ class DecisionScreen(Screen):
         entries: tuple[DiffEntry, ...],
         profiles: tuple[ConnectionProfile, ...],
         repo_root: Path,
-        **kwargs
+        **kwargs,
     ) -> None:
         super().__init__(**kwargs)
         self.entries = entries
         self.profiles = profiles
         self.repo_root = repo_root
         self.profile_names = tuple(p.name for p in self.profiles)
-        
+
         # State: maps entry -> (target_attributes, tuple_of_dest_profiles)
         # Keys are DiffEntry for non-merged entries, MergedMissingTable/MergedMissingColumn for merged groups.
         self.decisions: dict = {}
         self.table_by_id: dict[str, str] = {}
-        
+
         # Populate initial decisions for entries that won't be merged below.
         for entry in self.entries:
             if not isinstance(entry, (MissingTable, MissingColumn)):
@@ -186,8 +201,12 @@ class DecisionScreen(Screen):
         # into MergedMissingTable / MergedMissingColumn so the UI shows one decision card per finding.
         self.display_groups: dict[str, list] = {}
         for tbl_key, grp_entries in self.table_groups.items():
-            missing_tbl_entries = [e for e in grp_entries if isinstance(e, MissingTable)]
-            non_tbl_entries = [e for e in grp_entries if not isinstance(e, MissingTable)]
+            missing_tbl_entries = [
+                e for e in grp_entries if isinstance(e, MissingTable)
+            ]
+            non_tbl_entries = [
+                e for e in grp_entries if not isinstance(e, MissingTable)
+            ]
 
             display: list = []
             if missing_tbl_entries:
@@ -210,7 +229,12 @@ class DecisionScreen(Screen):
                     col_name = entry.column_name
                     if col_name not in seen_merged_cols:
                         seen_merged_cols.add(col_name)
-                        siblings = [e for e in non_tbl_entries if isinstance(e, MissingColumn) and e.column_name == col_name]
+                        siblings = [
+                            e
+                            for e in non_tbl_entries
+                            if isinstance(e, MissingColumn)
+                            and e.column_name == col_name
+                        ]
                         merged_col = MergedMissingColumn(
                             schema_name=entry.schema_name,
                             table_name=entry.table_name,
@@ -221,7 +245,9 @@ class DecisionScreen(Screen):
                             present_attributes=entry.present_attributes,
                         )
                         display.append(merged_col)
-                        self.decisions[merged_col] = self.get_default_decision(merged_col)
+                        self.decisions[merged_col] = self.get_default_decision(
+                            merged_col
+                        )
                 else:
                     display.append(entry)
 
@@ -235,18 +261,31 @@ class DecisionScreen(Screen):
 
     def compose(self) -> ComposeResult:
         with Container(id="decision-container"):
-            yield Label("Fase de Decisiones: Consolidación de Esquemas", id="decision-title")
+            yield Label(
+                "Fase de Decisiones: Consolidación de Esquemas", id="decision-title"
+            )
             with Container(id="decision-body"):
                 with Vertical(id="left-panel"):
                     yield Label("Tablas con discrepancias", classes="panel-title")
                     yield ListView(id="findings-list")
                 with Vertical(id="right-panel"):
-                    yield Label("Selecciona una tabla de la lista", id="empty-state-label")
+                    yield Label(
+                        "Selecciona una tabla de la lista", id="empty-state-label"
+                    )
             with Horizontal(id="footer-panel"):
                 yield Button("Cancelar [Esc]", variant="error", id="btn-cancel")
-                yield Button("Verificar SPs [V]", variant="default", id="btn-verify-sps", classes="button-bar")
-                yield Button("Generar SQL [G]", variant="success", id="btn-generate", classes="button-bar")
-
+                yield Button(
+                    "Verificar SPs [V]",
+                    variant="default",
+                    id="btn-verify-sps",
+                    classes="button-bar",
+                )
+                yield Button(
+                    "Generar SQL [G]",
+                    variant="success",
+                    id="btn-generate",
+                    classes="button-bar",
+                )
 
     def on_mount(self) -> None:
         self.populate_list()
@@ -255,7 +294,7 @@ class DecisionScreen(Screen):
         list_view = self.query_one("#findings-list", ListView)
         list_view.clear()
         self.table_by_id.clear()
-        
+
         for i, tbl_key in enumerate(self.table_keys):
             entries = self.display_groups[tbl_key]
             title = f" 📋 {tbl_key} ({len(entries)} hallazgo{'s' if len(entries) > 1 else ''})"
@@ -280,11 +319,16 @@ class DecisionScreen(Screen):
     def show_resolution_form(self, tbl_key: str) -> None:
         right_panel = self.query_one("#right-panel")
         right_panel.remove_children()
-        
+
         # Header title for selected table
-        right_panel.mount(Label(f"[bold underline]Consolidación de Tabla:[/bold underline] [cyan]{tbl_key}[/cyan]", classes="table-header-title"))
+        right_panel.mount(
+            Label(
+                f"[bold underline]Consolidación de Tabla:[/bold underline] [cyan]{tbl_key}[/cyan]",
+                classes="table-header-title",
+            )
+        )
         right_panel.mount(Label(""))
-        
+
         entries = self.display_groups[tbl_key]
         for entry in entries:
             right_panel.mount(ColumnResolutionWidget(entry, self))
@@ -312,8 +356,6 @@ class DecisionScreen(Screen):
             )
         )
 
-
-
     def action_generate_sql(self) -> None:
         from schema_comparator.compare.consolidation import (
             ColumnDeletionResolution,
@@ -336,8 +378,12 @@ class DecisionScreen(Screen):
                         # For MergedMissingTable this guards against absent profiles
                         # accidentally appearing in dests.
                         if isinstance(entry, MergedMissingTable):
-                            present_profiles = {prof for prof, _ in entry.present_columns}
-                            actual_dests = tuple(d for d in dests if d in present_profiles)
+                            present_profiles = {
+                                prof for prof, _ in entry.present_columns
+                            }
+                            actual_dests = tuple(
+                                d for d in dests if d in present_profiles
+                            )
                         else:
                             actual_dests = tuple(dests)
                         if actual_dests:
@@ -353,7 +399,9 @@ class DecisionScreen(Screen):
                         # For MergedMissingTable, only create in profiles where table is absent.
                         if isinstance(entry, MergedMissingTable):
                             absent_profiles = set(entry.missing_from_profiles)
-                            actual_dests = tuple(d for d in dests if d in absent_profiles)
+                            actual_dests = tuple(
+                                d for d in dests if d in absent_profiles
+                            )
                         else:
                             actual_dests = tuple(dests)
                         columns = None
@@ -377,7 +425,9 @@ class DecisionScreen(Screen):
                             profile_name
                             for profile_name, _ in (
                                 entry.present_attributes
-                                if isinstance(entry, (MissingColumn, MergedMissingColumn))
+                                if isinstance(
+                                    entry, (MissingColumn, MergedMissingColumn)
+                                )
                                 else entry.values_by_profile
                             )
                         }
@@ -394,7 +444,9 @@ class DecisionScreen(Screen):
                     else:
                         if isinstance(entry, MergedMissingColumn):
                             absent_profiles = set(entry.missing_from_profiles)
-                            actual_dests = tuple(d for d in dests if d in absent_profiles)
+                            actual_dests = tuple(
+                                d for d in dests if d in absent_profiles
+                            )
                         else:
                             actual_dests = tuple(dests)
                         if actual_dests:
@@ -409,13 +461,23 @@ class DecisionScreen(Screen):
                                 )
                             )
 
-        if not resolutions and not table_resolutions and not table_deletions and not column_deletions:
-            self.app.notify("No se seleccionó ninguna corrección para generar SQL.", severity="warning")
+        if (
+            not resolutions
+            and not table_resolutions
+            and not table_deletions
+            and not column_deletions
+        ):
+            self.app.notify(
+                "No se seleccionó ninguna corrección para generar SQL.",
+                severity="warning",
+            )
             return
 
         try:
             generated_files = write_sql_scripts(
-                resolutions, self.repo_root, list(self.profiles),
+                resolutions,
+                self.repo_root,
+                list(self.profiles),
                 table_resolutions=table_resolutions,
                 table_deletions=table_deletions,
                 column_deletions=column_deletions,
@@ -434,7 +496,9 @@ class DecisionScreen(Screen):
             except Exception:
                 pass
 
-    def on_selection_list_selected_changed(self, event: SelectionList.SelectedChanged) -> None:
+    def on_selection_list_selected_changed(
+        self, event: SelectionList.SelectedChanged
+    ) -> None:
         """Delegate SelectionList change event to the corresponding ColumnResolutionWidget."""
         for widget in self.query(ColumnResolutionWidget):
             try:
@@ -467,44 +531,52 @@ class ColumnResolutionWidget(Container):
     }
     """
 
-    def __init__(self, entry: DiffEntry, decision_screen: DecisionScreen, **kwargs) -> None:
+    def __init__(
+        self, entry: DiffEntry, decision_screen: DecisionScreen, **kwargs
+    ) -> None:
         super().__init__(**kwargs)
         self.entry = entry
         self.decision_screen = decision_screen
         self.options = self.build_options()
-        
+
     def build_options(self) -> list[tuple]:
         options = []
         if isinstance(self.entry, ColumnMismatch):
             attr_to_profiles = {}
             for prof, attrs in self.entry.values_by_profile:
                 attr_to_profiles.setdefault(attrs, []).append(prof)
-                
+
             for attrs, profs in attr_to_profiles.items():
                 label = f"{format_attributes(attrs)}  (ej. en: {', '.join(profs)})"
                 options.append((attrs, label))
-            options.append((ColumnAction.DROP, "Eliminar columna de perfiles donde existe"))
+            options.append(
+                (ColumnAction.DROP, "Eliminar columna de perfiles donde existe")
+            )
             options.append((None, "Ignorar discrepancia (no generar cambios)"))
-            
+
         elif isinstance(self.entry, (MissingColumn, MergedMissingColumn)):
             attr_to_profiles = {}
             for prof, attrs in self.entry.present_attributes:
                 attr_to_profiles.setdefault(attrs, []).append(prof)
-                
+
             for attrs, profs in attr_to_profiles.items():
                 label = f"Agregar como {format_attributes(attrs)}  (copiar de: {', '.join(profs)})"
                 options.append((attrs, label))
-            options.append((ColumnAction.DROP, "Eliminar columna de perfiles donde existe"))
+            options.append(
+                (ColumnAction.DROP, "Eliminar columna de perfiles donde existe")
+            )
             options.append((None, "No agregar (Ignorar)"))
-            
+
         elif isinstance(self.entry, (MissingTable, MergedMissingTable)):
             for prof, cols in self.entry.present_columns:
                 col_count = len(cols)
                 label = f"Crear con definición de '{prof}' ({col_count} columnas)"
                 options.append((prof, label))  # value is the source profile name
-            options.append((TableAction.DROP, "Eliminar tabla de perfiles donde existe"))
+            options.append(
+                (TableAction.DROP, "Eliminar tabla de perfiles donde existe")
+            )
             options.append((None, "Ignorar (no crear)"))
-            
+
         return options
 
     def compose(self) -> ComposeResult:
@@ -523,35 +595,42 @@ class ColumnResolutionWidget(Container):
                     f" (Tabla Faltante en [bold]{self.entry.missing_from_profile}[/bold])",
                     classes="column-title",
                 )
-            
+
             decision = self.decision_screen.decisions.get(self.entry)
             target, selected_profiles = decision
-            
+
             active_index = len(self.options) - 1
             for i, (val, _) in enumerate(self.options):
                 if val == target:
                     active_index = i
                     break
-            
+
             yield Label("[bold]Seleccionar perfil fuente para la definición:[/bold]")
             radio_set = RadioSet(
-                *[RadioButton(label, value=(i == active_index)) for i, (_, label) in enumerate(self.options)]
+                *[
+                    RadioButton(label, value=(i == active_index))
+                    for i, (_, label) in enumerate(self.options)
+                ]
             )
             yield radio_set
-            
+
             # Show column preview of the currently selected source
             if target is not None and target is not TableAction.DROP:
                 for prof, cols in self.entry.present_columns:
                     if prof == target:
-                        col_preview = ", ".join(f"[cyan]{c.name}[/cyan]" for c in cols[:10])
+                        col_preview = ", ".join(
+                            f"[cyan]{c.name}[/cyan]" for c in cols[:10]
+                        )
                         if len(cols) > 10:
                             col_preview += f" ... (+{len(cols) - 10} más)"
                         yield Label(f"[dim]Columnas: {col_preview}[/dim]")
                         break
-            
+
             is_drop = target is TableAction.DROP
             yield Label(
-                "[bold]Eliminar tabla en:[/bold]" if is_drop else "[bold]Crear tabla en:[/bold]",
+                "[bold]Eliminar tabla en:[/bold]"
+                if is_drop
+                else "[bold]Crear tabla en:[/bold]",
                 classes="dest-label",
             )
             selection_list = SelectionList(classes="profile-selection-list")
@@ -569,12 +648,14 @@ class ColumnResolutionWidget(Container):
                     else [self.entry.missing_from_profile]
                 )
             for profile_name in destination_profiles:
-                selection_list.add_option((
-                    profile_name,
-                    profile_name,
-                    profile_name in selected_profiles,
-                ))
-            selection_list.disabled = (target is None)
+                selection_list.add_option(
+                    (
+                        profile_name,
+                        profile_name,
+                        profile_name in selected_profiles,
+                    )
+                )
+            selection_list.disabled = target is None
             yield selection_list
             return
 
@@ -585,29 +666,41 @@ class ColumnResolutionWidget(Container):
                 classes="column-title",
             )
         else:
-            diff_type = "Discrepancia de Atributos" if isinstance(self.entry, ColumnMismatch) else "Columna Faltante"
-            yield Label(f"Columna: [bold]{self.entry.column_name}[/bold] ({diff_type})", classes="column-title")
-        
+            diff_type = (
+                "Discrepancia de Atributos"
+                if isinstance(self.entry, ColumnMismatch)
+                else "Columna Faltante"
+            )
+            yield Label(
+                f"Columna: [bold]{self.entry.column_name}[/bold] ({diff_type})",
+                classes="column-title",
+            )
+
         # RadioSet
         decision = self.decision_screen.decisions.get(self.entry)
         target_attrs, selected_profiles = decision
-        
+
         active_index = len(self.options) - 1
         for i, (attrs, _) in enumerate(self.options):
             if attrs == target_attrs:
                 active_index = i
                 break
-                
+
         yield Label("[bold]Seleccionar definición correcta:[/bold]")
         radio_set = RadioSet(
-            *[RadioButton(label, value=(i == active_index)) for i, (_, label) in enumerate(self.options)]
+            *[
+                RadioButton(label, value=(i == active_index))
+                for i, (_, label) in enumerate(self.options)
+            ]
         )
         yield radio_set
-        
+
         # SelectionList
         is_drop = target_attrs is ColumnAction.DROP
         yield Label(
-            "[bold]Eliminar columna en:[/bold]" if is_drop else "[bold]Aplicar corrección en:[/bold] (Presiona [Espacio] para marcar/desmarcar)",
+            "[bold]Eliminar columna en:[/bold]"
+            if is_drop
+            else "[bold]Aplicar corrección en:[/bold] (Presiona [Espacio] para marcar/desmarcar)",
             classes="dest-label",
         )
         if is_drop:
@@ -626,22 +719,22 @@ class ColumnResolutionWidget(Container):
                 dest_profiles = list(self.entry.missing_from_profiles)
             else:
                 dest_profiles = [self.entry.missing_from_profile]
-        
+
         selection_list = SelectionList(classes="profile-selection-list")
         for p in dest_profiles:
             selection_list.add_option((p, p, p in selected_profiles))
-            
-        selection_list.disabled = (target_attrs is None)
+
+        selection_list.disabled = target_attrs is None
         yield selection_list
 
     def handle_radio_change(self, idx: int) -> None:
         """Handle option changes from the radio button set."""
         if idx < 0 or idx >= len(self.options):
             return
-            
+
         target, _ = self.options[idx]
         selection_list = self.query_one(SelectionList)
-        
+
         if target is None:
             selection_list.disabled = True
             selection_list.deselect_all()
@@ -675,11 +768,13 @@ class ColumnResolutionWidget(Container):
                 )
             selection_list.clear_options()
             for profile_name in destination_profiles:
-                selection_list.add_option((
-                    profile_name,
-                    profile_name,
-                    profile_name in default_dests,
-                ))
+                selection_list.add_option(
+                    (
+                        profile_name,
+                        profile_name,
+                        profile_name in default_dests,
+                    )
+                )
             self.decision_screen.decisions[self.entry] = (target, default_dests)
         elif target is ColumnAction.DROP:
             selection_list.disabled = False
@@ -699,7 +794,8 @@ class ColumnResolutionWidget(Container):
             selection_list.disabled = False
             if isinstance(self.entry, ColumnMismatch):
                 default_dests = tuple(
-                    prof for prof, attrs in self.entry.values_by_profile
+                    prof
+                    for prof, attrs in self.entry.values_by_profile
                     if attrs != target
                 )
                 dest_profiles = list(self.decision_screen.profile_names)
@@ -709,11 +805,11 @@ class ColumnResolutionWidget(Container):
             else:
                 default_dests = (self.entry.missing_from_profile,)
                 dest_profiles = [self.entry.missing_from_profile]
-                
+
             selection_list.clear_options()
             for p in dest_profiles:
                 selection_list.add_option((p, p, p in default_dests))
-                
+
             self.decision_screen.decisions[self.entry] = (target, default_dests)
 
     def handle_selection_change(self, selected_items: list[str]) -> None:
@@ -722,4 +818,3 @@ class ColumnResolutionWidget(Container):
         if decision:
             target, _ = decision
             self.decision_screen.decisions[self.entry] = (target, tuple(selected_items))
-

@@ -37,7 +37,9 @@ def _row_for_group(entries: list[DiffEntry], profiles: tuple[str, ...]) -> dict:
     cells: dict[str, dict | None] = {}
 
     if isinstance(first, MissingTable):
-        missing_set = {e.missing_from_profile for e in entries if isinstance(e, MissingTable)}
+        missing_set = {
+            e.missing_from_profile for e in entries if isinstance(e, MissingTable)
+        }
         for p in profiles:
             if p in missing_set:
                 cells[p] = {"kind": "missing", "text": MISSING_MARKER}
@@ -45,14 +47,19 @@ def _row_for_group(entries: list[DiffEntry], profiles: tuple[str, ...]) -> dict:
                 cells[p] = None
         detail = None
     elif isinstance(first, MissingColumn):
-        missing_set = {e.missing_from_profile for e in entries if isinstance(e, MissingColumn)}
+        missing_set = {
+            e.missing_from_profile for e in entries if isinstance(e, MissingColumn)
+        }
         first_missing = next(e for e in entries if isinstance(e, MissingColumn))
         present_attrs = dict(first_missing.present_attributes)
         for p in profiles:
             if p in missing_set:
                 cells[p] = {"kind": "missing", "text": MISSING_MARKER}
             elif p in present_attrs:
-                cells[p] = {"kind": "value", "text": format_attributes(present_attrs[p])}
+                cells[p] = {
+                    "kind": "value",
+                    "text": format_attributes(present_attrs[p]),
+                }
             else:
                 cells[p] = None
         detail = first.column_name
@@ -89,7 +96,9 @@ def build_context(result: ComparisonResult) -> dict:
     """Build the pure dict-shaped template context for `result`."""
     groups = []
     for (schema, object_name), rows_of_entries in grouped_rows_by_table(result):
-        rows = [_row_for_group(group, result.compared_profiles) for group in rows_of_entries]
+        rows = [
+            _row_for_group(group, result.compared_profiles) for group in rows_of_entries
+        ]
         groups.append({"schema_name": schema, "table_name": object_name, "rows": rows})
     return {
         "compared_profiles": result.compared_profiles,

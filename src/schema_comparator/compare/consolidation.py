@@ -5,11 +5,12 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
-from schema_comparator.domain.comparison.models import ColumnAttributes, NamedColumnAttributes
+from schema_comparator.domain.comparison.models import (
+    ColumnAttributes,
+    NamedColumnAttributes,
+)
 from schema_comparator.config.models import ConnectionProfile
 from schema_comparator.infrastructure.providers.sqlserver.ddl_renderer import (
-    extract_database_name,
-    format_sql_column_definition,
     generate_ddl_for_profile,
 )
 
@@ -99,27 +100,42 @@ def generate_impact_report(
 
     for profile_name in sorted(profiles_to_update):
         lines.append(f"## Perfil / Base de Datos: `{profile_name}`")
-        lines.append(f"**Archivo de Script SQL:** `{sanitize_profile_filename(profile_name)}.sql`\n")
+        lines.append(
+            f"**Archivo de Script SQL:** `{sanitize_profile_filename(profile_name)}.sql`\n"
+        )
 
-        prof_table_creations = [t for t in (table_resolutions or []) if profile_name in t.profiles_to_update]
-        prof_table_deletions = [t for t in (table_deletions or []) if profile_name in t.profiles_to_update]
-        prof_col_changes = [c for c in resolutions if profile_name in c.profiles_to_update]
-        prof_col_deletions = [c for c in (column_deletions or []) if profile_name in c.profiles_to_update]
+        prof_table_creations = [
+            t for t in (table_resolutions or []) if profile_name in t.profiles_to_update
+        ]
+        prof_table_deletions = [
+            t for t in (table_deletions or []) if profile_name in t.profiles_to_update
+        ]
+        prof_col_changes = [
+            c for c in resolutions if profile_name in c.profiles_to_update
+        ]
+        prof_col_deletions = [
+            c for c in (column_deletions or []) if profile_name in c.profiles_to_update
+        ]
 
-        table_pairs = sorted({
-            (t.schema_name, t.table_name)
-            for t in (prof_table_creations + prof_table_deletions)
-        } | {
-            (c.schema_name, c.table_name)
-            for c in (prof_col_changes + prof_col_deletions)
-        })
+        table_pairs = sorted(
+            {
+                (t.schema_name, t.table_name)
+                for t in (prof_table_creations + prof_table_deletions)
+            }
+            | {
+                (c.schema_name, c.table_name)
+                for c in (prof_col_changes + prof_col_deletions)
+            }
+        )
 
         lines.append("### 1. Resumen de Cambios Estructurales")
         if prof_table_creations:
             lines.append("- **Tablas Creadas:**")
             for t in prof_table_creations:
                 cols_str = ", ".join(f"`{c.name}`" for c in t.columns)
-                lines.append(f"  - `{t.schema_name}.{t.table_name}` (Columnas: {cols_str})")
+                lines.append(
+                    f"  - `{t.schema_name}.{t.table_name}` (Columnas: {cols_str})"
+                )
         if prof_table_deletions:
             lines.append("- **Tablas Eliminadas:**")
             for t in prof_table_deletions:
@@ -127,32 +143,62 @@ def generate_impact_report(
         if prof_col_changes:
             lines.append("- **Columnas Agregadas / Modificadas:**")
             for c in prof_col_changes:
-                action = "Agregar columna" if c.is_missing_column else "Modificar atributos"
-                lines.append(f"  - `{c.schema_name}.{c.table_name}.{c.column_name}` ({action} -> `{c.target_attributes.data_type}`)")
+                action = (
+                    "Agregar columna" if c.is_missing_column else "Modificar atributos"
+                )
+                lines.append(
+                    f"  - `{c.schema_name}.{c.table_name}.{c.column_name}` ({action} -> `{c.target_attributes.data_type}`)"
+                )
         if prof_col_deletions:
             lines.append("- **Columnas Eliminadas:**")
             for c in prof_col_deletions:
                 lines.append(f"  - `{c.schema_name}.{c.table_name}.{c.column_name}`")
-        if not (prof_table_creations or prof_table_deletions or prof_col_changes or prof_col_deletions):
+        if not (
+            prof_table_creations
+            or prof_table_deletions
+            or prof_col_changes
+            or prof_col_deletions
+        ):
             lines.append("- Sin cambios en este perfil.")
 
         lines.append("\n### 2. Qué Debemos Revisar en los Procedimientos Almacenados")
         if prof_table_deletions or prof_col_deletions:
             lines.append("- [ ] **Riesgo Crítico (Eliminación de Objetos/Columnas):**")
-            lines.append("  - Revisar si existen procedimientos almacenados que hagan referencia a las tablas o columnas eliminadas (`SELECT`, `INSERT`, `UPDATE`, `JOIN`).")
-            lines.append("  - **Efecto:** Error de ejecución `Invalid column name` o `Invalid object name` al invocar la rutina.")
+            lines.append(
+                "  - Revisar si existen procedimientos almacenados que hagan referencia a las tablas o columnas eliminadas (`SELECT`, `INSERT`, `UPDATE`, `JOIN`)."
+            )
+            lines.append(
+                "  - **Efecto:** Error de ejecución `Invalid column name` o `Invalid object name` al invocar la rutina."
+            )
         if prof_col_changes:
-            lines.append("- [ ] **Riesgo Medio (Modificación de Atributos o Nuevas Columnas):**")
-            lines.append("  - Procedimientos almacenados que utilicen `INSERT INTO [tabla] VALUES (...)` sin especificar lista explícita de columnas.")
-            lines.append("  - Procedimientos que dependan del orden ordinal de `SELECT *`.")
-            lines.append("  - Variables locales (`DECLARE @var ...`) o parámetros de procedimiento cuya precisión o longitud quede desalineada con el tipo en la BD.")
+            lines.append(
+                "- [ ] **Riesgo Medio (Modificación de Atributos o Nuevas Columnas):**"
+            )
+            lines.append(
+                "  - Procedimientos almacenados que utilicen `INSERT INTO [tabla] VALUES (...)` sin especificar lista explícita de columnas."
+            )
+            lines.append(
+                "  - Procedimientos que dependan del orden ordinal de `SELECT *`."
+            )
+            lines.append(
+                "  - Variables locales (`DECLARE @var ...`) o parámetros de procedimiento cuya precisión o longitud quede desalineada con el tipo en la BD."
+            )
         if prof_table_creations:
             lines.append("- [ ] **Punto de Control (Nuevas Tablas):**")
-            lines.append("  - Evaluar si se requieren nuevos procedimientos almacenados (CRUD/ETL) o si se deben actualizar flujos de integración existentes.")
+            lines.append(
+                "  - Evaluar si se requieren nuevos procedimientos almacenados (CRUD/ETL) o si se deben actualizar flujos de integración existentes."
+            )
 
-        table_names_quoted = ", ".join(f"'{tbl.replace('\'', '\'\'')}'" for _, tbl in table_pairs)
-        lines.append("\n### 3. Consulta T-SQL para Identificar Procedimientos Almacenados Afectados")
-        lines.append(f"Ejecute la siguiente consulta directamente en la base de datos de `{profile_name}`:")
+        def _quote_tbl(name: str) -> str:
+            return "'" + name.replace("'", "''") + "'"
+
+        table_names_quoted = ", ".join(_quote_tbl(tbl) for _, tbl in table_pairs)
+        lines.append(
+            "\n### 3. Consulta T-SQL para Identificar Procedimientos Almacenados Afectados"
+        )
+        lines.append(
+            f"Ejecute la siguiente consulta directamente en la base de datos de `{profile_name}`:"
+        )
         lines.append("```sql")
         lines.append("SELECT DISTINCT")
         lines.append("    SCHEMA_NAME(o.schema_id) AS esquema,")
@@ -170,7 +216,9 @@ def generate_impact_report(
         lines.append("```\n")
 
         lines.append("### 4. Recomendación de Recompilación")
-        lines.append("Una vez ejecutados los scripts DDL, ejecute `sp_recompile` en las tablas afectadas para invalidar la caché de planes de ejecución y detectar errores de compilación en los procedimientos almacenados:")
+        lines.append(
+            "Una vez ejecutados los scripts DDL, ejecute `sp_recompile` en las tablas afectadas para invalidar la caché de planes de ejecución y detectar errores de compilación en los procedimientos almacenados:"
+        )
         lines.append("```sql")
         for sch, tbl in table_pairs:
             safe_sch = sch.replace("'", "''").replace("]", "]]")
@@ -198,24 +246,26 @@ def write_sql_scripts(
     output_dir = root_path / "scripts-db" / folder_name
     output_dir.mkdir(parents=True, exist_ok=True)
     profile_map = {p.name: p for p in profiles}
-    
+
     all_profiles_names = set()
     for res in resolutions:
         all_profiles_names.update(res.profiles_to_update)
-    for tres in (table_resolutions or []):
+    for tres in table_resolutions or []:
         all_profiles_names.update(tres.profiles_to_update)
-    for deletion in (table_deletions or []):
+    for deletion in table_deletions or []:
         all_profiles_names.update(deletion.profiles_to_update)
-    for deletion in (column_deletions or []):
+    for deletion in column_deletions or []:
         all_profiles_names.update(deletion.profiles_to_update)
-        
+
     written_files = []
     used_filenames: set[str] = set()
     sorted_profiles = sorted(all_profiles_names)
     for profile_name in sorted_profiles:
         profile = profile_map.get(
-            profile_name, 
-            ConnectionProfile(name=profile_name, connection_string=f"Database={profile_name};")
+            profile_name,
+            ConnectionProfile(
+                name=profile_name, connection_string=f"Database={profile_name};"
+            ),
         )
         ddl = generate_ddl_for_profile(
             resolutions,
@@ -236,7 +286,7 @@ def write_sql_scripts(
         file_path = output_dir / f"{safe_profile}.sql"
         file_path.write_text(ddl, encoding="utf-8")
         written_files.append(str(file_path.resolve()))
-        
+
     if sorted_profiles:
         report_content = generate_impact_report(
             resolutions,

@@ -1,15 +1,16 @@
 """Unit tests for ProcedureVerificationScreen and procedure TUI components."""
 
-import pytest
 from pathlib import Path
 from schema_comparator.config.models import ConnectionProfile
 from schema_comparator.domain.schema.models import ProcedureSnapshot, ParameterSnapshot
-from schema_comparator.domain.comparison.models import MissingProcedure, ProcedureMismatch
+from schema_comparator.domain.comparison.models import (
+    MissingProcedure,
+    ProcedureMismatch,
+)
 from schema_comparator.infrastructure.providers.sqlserver.sp_validator import (
     RoutineIdentity,
     RoutineValidationResult,
     RoutineValidationStatus,
-    ModuleRefreshResult,
     SignatureStatus,
 )
 from schema_comparator.tui.formatting import leaf_label, detail_text, entry_matches
@@ -22,7 +23,14 @@ def test_tui_formatting_missing_procedure_label_and_detail():
         procedure_name="sp_CalculateRisk",
         missing_from_profile="Profile2",
         present_procedures=(
-            ("Profile1", ProcedureSnapshot("dbo", "sp_CalculateRisk", parameters=(ParameterSnapshot("@UserId", "int"),))),
+            (
+                "Profile1",
+                ProcedureSnapshot(
+                    "dbo",
+                    "sp_CalculateRisk",
+                    parameters=(ParameterSnapshot("@UserId", "int"),),
+                ),
+            ),
         ),
     )
 
@@ -41,8 +49,14 @@ def test_tui_formatting_procedure_mismatch_label_and_detail():
         schema_name="dbo",
         procedure_name="sp_UpdateStatus",
         values_by_profile=(
-            ("Profile1", ProcedureSnapshot("dbo", "sp_UpdateStatus", definition_hash="hash1")),
-            ("Profile2", ProcedureSnapshot("dbo", "sp_UpdateStatus", definition_hash="hash2")),
+            (
+                "Profile1",
+                ProcedureSnapshot("dbo", "sp_UpdateStatus", definition_hash="hash1"),
+            ),
+            (
+                "Profile2",
+                ProcedureSnapshot("dbo", "sp_UpdateStatus", definition_hash="hash2"),
+            ),
         ),
     )
 
@@ -69,7 +83,9 @@ def test_tui_entry_matches_procedure_and_spanish_keywords():
 
 
 def test_procedure_verification_screen_init(tmp_path: Path):
-    prof = ConnectionProfile(name="test_prof", connection_string="Server=localhost;Database=db;")
+    prof = ConnectionProfile(
+        name="test_prof", connection_string="Server=localhost;Database=db;"
+    )
     screen = ProcedureVerificationScreen(
         profiles=(prof,),
         repo_root=tmp_path,
@@ -81,8 +97,12 @@ def test_procedure_verification_screen_init(tmp_path: Path):
     assert screen._exclude_patterns == ["temp"]
 
 
-def test_action_generate_script_escapes_single_quotes_and_skips_signed_and_placeholders(tmp_path: Path):
-    prof = ConnectionProfile(name="test_prof", connection_string="Server=localhost;Database=db;")
+def test_action_generate_script_escapes_single_quotes_and_skips_signed_and_placeholders(
+    tmp_path: Path,
+):
+    prof = ConnectionProfile(
+        name="test_prof", connection_string="Server=localhost;Database=db;"
+    )
     screen = ProcedureVerificationScreen(
         profiles=(prof,),
         repo_root=tmp_path,

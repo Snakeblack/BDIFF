@@ -29,7 +29,7 @@ def _profiles() -> list[ConnectionProfile]:
 async def test_app_shows_header_with_profiles_and_counts() -> None:
     app = SchemaComparatorApp(comparison_result_with_findings())
 
-    async with app.run_test() as pilot:
+    async with app.run_test() as _pilot:
         header = app.query_one(SummaryHeader)
         rendered = str(header.render())
 
@@ -43,7 +43,7 @@ async def test_app_shows_header_with_profiles_and_counts() -> None:
 async def test_app_shows_no_drift_message_for_empty_result() -> None:
     app = SchemaComparatorApp(comparison_result_empty())
 
-    async with app.run_test() as pilot:
+    async with app.run_test() as _pilot:
         assert len(app.query(FindingsTree)) == 0
         static_texts = [str(w.render()) for w in app.query("#no-drift-message")]
 
@@ -54,7 +54,7 @@ async def test_app_shows_no_drift_message_for_empty_result() -> None:
 async def test_app_tree_shows_one_group_per_table() -> None:
     app = SchemaComparatorApp(comparison_result_with_findings())
 
-    async with app.run_test() as pilot:
+    async with app.run_test() as _pilot:
         tree = app.query_one(FindingsTree)
         labels = [str(child.label) for child in tree.root.children]
 
@@ -65,7 +65,7 @@ async def test_app_tree_shows_one_group_per_table() -> None:
 async def test_app_expanding_group_reveals_findings() -> None:
     app = SchemaComparatorApp(comparison_result_with_findings())
 
-    async with app.run_test() as pilot:
+    async with app.run_test() as _pilot:
         tree = app.query_one(FindingsTree)
         invoice_group = tree.root.children[0]
 
@@ -280,13 +280,13 @@ async def test_run_comparison_failure_leaves_previous_result_and_logs_error() ->
 
             assert app._result is original_result
             assert app._tree_data is original_tree_data
-            assert any(
-                "Falló la comparación: boom" in str(line) for line in log.lines
-            )
+            assert any("Falló la comparación: boom" in str(line) for line in log.lines)
 
 
 @pytest.mark.asyncio
-async def test_pressing_g_calls_generate_reports_with_string_io_and_logs_output() -> None:
+async def test_pressing_g_calls_generate_reports_with_string_io_and_logs_output() -> (
+    None
+):
     captured = {}
 
     def fake_generate(result, *, out=None):
@@ -363,14 +363,15 @@ def test_run_tui_forwards_profiles_and_exclude_patterns() -> None:
 @pytest.mark.asyncio
 async def test_app_opens_decision_screen() -> None:
     from schema_comparator.tui.decision_screen import DecisionScreen
+
     app = SchemaComparatorApp(comparison_result_with_findings(), profiles=_profiles())
-    
+
     async with app.run_test() as pilot:
         tree = app.query_one(FindingsTree)
         tree.focus()
         await pilot.pause()
         await pilot.press("d")
         await pilot.pause()
-        
+
         # Verify that DecisionScreen is now the active screen
         assert isinstance(app.screen, DecisionScreen)

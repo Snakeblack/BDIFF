@@ -6,7 +6,6 @@ import pytest
 
 from schema_comparator.compare.engine import compare_snapshots
 from schema_comparator.domain.comparison.models import (
-    ForeignKeyMismatch,
     IndexMismatch,
     PrimaryKeyMismatch,
 )

@@ -5,7 +5,6 @@ from typing import Any, Callable
 import pyodbc
 
 from schema_comparator.application.services.extraction import (
-    SchemaExtractionService,
     default_extract_schema,
 )
 from schema_comparator.config.models import ConnectionProfile
@@ -21,7 +20,10 @@ def extract_schema(
     """Extract a read-only, in-memory SchemaSnapshot for profile including tables and procedures."""
     if connect_fn is not None:
         from schema_comparator.domain.errors import RoutineIntrospectionError
-        from schema_comparator.infrastructure.providers.sqlserver import connection, introspector
+        from schema_comparator.infrastructure.providers.sqlserver import (
+            connection,
+            introspector,
+        )
         from schema_comparator.infrastructure.providers.sqlserver.errors import (
             translate_connect_error,
             translate_query_error,

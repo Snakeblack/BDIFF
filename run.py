@@ -30,7 +30,10 @@ def resolve_venv_python(venv_dir: Path) -> Path:
 
 
 def is_venv_ready(venv_dir: Path) -> bool:
-    return resolve_venv_python(venv_dir).exists() and (venv_dir / _READY_MARKER_NAME).exists()
+    return (
+        resolve_venv_python(venv_dir).exists()
+        and (venv_dir / _READY_MARKER_NAME).exists()
+    )
 
 
 def build_pip_install_argv(venv_python: Path, repo_root: Path) -> list[str]:

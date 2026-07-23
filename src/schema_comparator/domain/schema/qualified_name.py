@@ -19,5 +19,9 @@ class QualifiedName:
         """Return dot-separated qualified name string omitting None components."""
         if self.catalog_name is not None and self.schema_name is None:
             return f"{self.catalog_name}..{self.object_name}"
-        parts = [p for p in (self.catalog_name, self.schema_name, self.object_name) if p is not None]
+        parts = [
+            p
+            for p in (self.catalog_name, self.schema_name, self.object_name)
+            if p is not None
+        ]
         return ".".join(parts)

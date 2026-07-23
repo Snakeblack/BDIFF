@@ -12,7 +12,9 @@ class DatabaseProvider(Protocol):
 
     provider_id: str
 
-    def capabilities(self, profile: ConnectionProfile | None = None) -> ProviderCapabilities:
+    def capabilities(
+        self, profile: ConnectionProfile | None = None
+    ) -> ProviderCapabilities:
         """Capabilities supported by this database provider."""
         ...
 

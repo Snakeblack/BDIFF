@@ -24,7 +24,9 @@ class OracleProvider:
         """Validate Oracle connection profile."""
         profile_parser.validate_oracle_profile(profile)
 
-    def capabilities(self, profile: ConnectionProfile | None = None) -> ProviderCapabilities:
+    def capabilities(
+        self, profile: ConnectionProfile | None = None
+    ) -> ProviderCapabilities:
         """Return capabilities supported by Oracle."""
         return ProviderCapabilities(
             provider_id="oracle",

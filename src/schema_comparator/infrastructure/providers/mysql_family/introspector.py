@@ -64,7 +64,9 @@ def build_snapshot(
                 numeric_scale=num_scale,
                 is_nullable=(is_nullable == "YES"),
                 ordinal_position=ordinal,
-                default_expression=str(col_default) if col_default is not None else None,
+                default_expression=str(col_default)
+                if col_default is not None
+                else None,
                 is_identity=is_identity_bool,
                 collation=collation,
             )

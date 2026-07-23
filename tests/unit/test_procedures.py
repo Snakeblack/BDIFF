@@ -1,12 +1,9 @@
 """Unit tests for stored procedure extraction, comparison, and verification."""
 
-import pytest
-
 from schema_comparator.domain.schema.models import (
     ParameterSnapshot,
     ProcedureSnapshot,
     SchemaSnapshot,
-    TableSnapshot,
 )
 from schema_comparator.domain.comparison.models import (
     MissingProcedure,
@@ -56,8 +53,34 @@ def test_introspector_build_snapshot_with_procedures():
         ("dbo", "Users", "Id", "int", None, 10, 0, "NO", 1),
     ]
     proc_rows = [
-        ("dbo", "sp_GetUser", "SQL_STORED_PROCEDURE", "CREATE PROC dbo.sp_GetUser AS SELECT 1;", 0, "@UserId", "int", None, 10, 0, False, 1),
-        ("dbo", "sp_GetUser", "SQL_STORED_PROCEDURE", "CREATE PROC dbo.sp_GetUser AS SELECT 1;", 0, "@ActiveOnly", "bit", None, None, None, False, 2),
+        (
+            "dbo",
+            "sp_GetUser",
+            "SQL_STORED_PROCEDURE",
+            "CREATE PROC dbo.sp_GetUser AS SELECT 1;",
+            0,
+            "@UserId",
+            "int",
+            None,
+            10,
+            0,
+            False,
+            1,
+        ),
+        (
+            "dbo",
+            "sp_GetUser",
+            "SQL_STORED_PROCEDURE",
+            "CREATE PROC dbo.sp_GetUser AS SELECT 1;",
+            0,
+            "@ActiveOnly",
+            "bit",
+            None,
+            None,
+            None,
+            False,
+            2,
+        ),
     ]
 
     snapshot = build_snapshot("Profile1", table_rows, proc_rows=proc_rows)
@@ -119,12 +142,18 @@ def test_compare_snapshots_procedure_mismatch():
     proc2 = ProcedureSnapshot(
         schema_name="dbo",
         procedure_name="sp_Calc",
-        parameters=(ParameterSnapshot(name="@Val", data_type="bigint"),),  # Different parameter type
+        parameters=(
+            ParameterSnapshot(name="@Val", data_type="bigint"),
+        ),  # Different parameter type
         definition_hash="hash_b",
     )
 
-    snap1 = SchemaSnapshot(profile_name="Profile1", provider_id="sqlserver", tables=(), procedures=(proc1,))
-    snap2 = SchemaSnapshot(profile_name="Profile2", provider_id="sqlserver", tables=(), procedures=(proc2,))
+    snap1 = SchemaSnapshot(
+        profile_name="Profile1", provider_id="sqlserver", tables=(), procedures=(proc1,)
+    )
+    snap2 = SchemaSnapshot(
+        profile_name="Profile2", provider_id="sqlserver", tables=(), procedures=(proc2,)
+    )
 
     result = compare_snapshots([snap1, snap2])
 

@@ -6,7 +6,10 @@ from schema_comparator.config.models import ConnectionProfile
 from schema_comparator.domain.capabilities import ProviderCapabilities
 from schema_comparator.domain.errors import RoutineIntrospectionError
 from schema_comparator.domain.schema.models import SchemaSnapshot
-from schema_comparator.infrastructure.providers.sqlserver import connection, introspector
+from schema_comparator.infrastructure.providers.sqlserver import (
+    connection,
+    introspector,
+)
 from schema_comparator.infrastructure.providers.sqlserver.errors import (
     translate_connect_error,
     translate_query_error,
@@ -18,7 +21,9 @@ class SqlServerProvider:
 
     provider_id: str = "sqlserver"
 
-    def capabilities(self, profile: ConnectionProfile | None = None) -> ProviderCapabilities:
+    def capabilities(
+        self, profile: ConnectionProfile | None = None
+    ) -> ProviderCapabilities:
         """Return capabilities supported by SQL Server."""
         return ProviderCapabilities(
             provider_id=self.provider_id,

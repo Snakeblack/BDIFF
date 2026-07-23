@@ -24,7 +24,9 @@ class MariaDbProvider:
         """Validate MariaDB connection profile."""
         profile_parser.validate_mysql_family_profile(profile, provider_name="mariadb")
 
-    def capabilities(self, profile: ConnectionProfile | None = None) -> ProviderCapabilities:
+    def capabilities(
+        self, profile: ConnectionProfile | None = None
+    ) -> ProviderCapabilities:
         """Return capabilities supported by MariaDB."""
         return ProviderCapabilities(
             provider_id="mariadb",

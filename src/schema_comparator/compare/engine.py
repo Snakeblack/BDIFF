@@ -20,12 +20,11 @@ from schema_comparator.compare.models import (
     PrimaryKeyMismatch,
     ProcedureMismatch,
 )
-from schema_comparator.domain.capabilities import ComparisonMode, RoutineComparisonPolicy
-from schema_comparator.domain.comparison.type_equivalences import (
-    are_types_semantically_equivalent,
+from schema_comparator.domain.capabilities import (
+    ComparisonMode,
+    RoutineComparisonPolicy,
 )
 from schema_comparator.domain.schema.models import (
-    DefinitionAvailability,
     ProcedureSnapshot,
     SchemaFeature,
     SchemaSnapshot,
@@ -145,7 +144,9 @@ def _evaluate_columns(
                 sorted(
                     (
                         p,
-                        ColumnAttributes.from_snapshot(columns_by_profile[p][column_name]),
+                        ColumnAttributes.from_snapshot(
+                            columns_by_profile[p][column_name]
+                        ),
                     )
                     for p in present
                 )
@@ -168,7 +169,9 @@ def _evaluate_columns(
             attrs_by_profile = dict(present_attrs)
 
             if mode == ComparisonMode.SEMANTIC_EQUIVALENT:
-                from schema_comparator.domain.comparison.type_equivalences import get_type_family
+                from schema_comparator.domain.comparison.type_equivalences import (
+                    get_type_family,
+                )
 
                 def _norm(attrs: ColumnAttributes) -> ColumnAttributes:
                     return ColumnAttributes(
@@ -242,7 +245,9 @@ def _evaluate_advanced_objects(
                     next(
                         (
                             fk
-                            for fk in getattr(table_index[p][identity], "foreign_keys", ())
+                            for fk in getattr(
+                                table_index[p][identity], "foreign_keys", ()
+                            )
                             if fk.name == fk_name
                         ),
                         None,
@@ -305,7 +310,9 @@ def _evaluate_procedures(
 
     # Check provider capabilities
     if routine_policy == RoutineComparisonPolicy.ALL_CAPABLE:
-        capable = [s for s in snapshots if SchemaFeature.ROUTINES in s.extracted_features]
+        capable = [
+            s for s in snapshots if SchemaFeature.ROUTINES in s.extracted_features
+        ]
         if len(capable) < 2:
             return ()
         snapshots = capable
@@ -318,8 +325,7 @@ def _evaluate_procedures(
     entries: list[MissingProcedure | ProcedureMismatch] = []
 
     proc_index: dict[str, dict[tuple[str, str], ProcedureSnapshot]] = {
-        s.profile_name: {p.qualified_name: p for p in s.procedures}
-        for s in snapshots
+        s.profile_name: {p.qualified_name: p for p in s.procedures} for s in snapshots
     }
 
     union_procs: set[tuple[str, str]] = set()
@@ -361,9 +367,9 @@ def _evaluate_procedures(
                     p_snap.routine_type != first_proc.routine_type
                     or p_snap.parameters != first_proc.parameters
                     or p_snap.definition_hash != first_proc.definition_hash
-                    or p_snap.definition_availability != first_proc.definition_availability
+                    or p_snap.definition_availability
+                    != first_proc.definition_availability
                 ):
-
                     has_mismatch = True
                     break
 
@@ -399,7 +405,15 @@ def _sort_key(
         entry.schema_name,
         table_or_proc,
         _TYPE_RANK[type(entry)],
-        getattr(entry, "column_name", getattr(entry, "procedure_name", getattr(entry, "fk_name", getattr(entry, "index_name", "")))),
+        getattr(
+            entry,
+            "column_name",
+            getattr(
+                entry,
+                "procedure_name",
+                getattr(entry, "fk_name", getattr(entry, "index_name", "")),
+            ),
+        ),
         getattr(entry, "missing_from_profile", ""),
     )
 
@@ -416,9 +430,20 @@ def compare_snapshots(
     table_index = _build_table_index(snapshots)
 
     table_entries = _evaluate_tables(union, presence, table_index, profile_names)
-    column_entries = _evaluate_columns(union, presence, table_index, profile_names, mode=mode)
-    advanced_entries = _evaluate_advanced_objects(union, presence, table_index, profile_names)
-    procedure_entries = _evaluate_procedures(snapshots, profile_names, routine_policy=routine_policy)
+    column_entries = _evaluate_columns(
+        union, presence, table_index, profile_names, mode=mode
+    )
+    advanced_entries = _evaluate_advanced_objects(
+        union, presence, table_index, profile_names
+    )
+    procedure_entries = _evaluate_procedures(
+        snapshots, profile_names, routine_policy=routine_policy
+    )
 
-    entries = tuple(sorted(table_entries + column_entries + advanced_entries + procedure_entries, key=_sort_key))
+    entries = tuple(
+        sorted(
+            table_entries + column_entries + advanced_entries + procedure_entries,
+            key=_sort_key,
+        )
+    )
     return ComparisonResult(compared_profiles=profile_names, entries=entries)

@@ -14,8 +14,12 @@ def test_missing_table_siblings_across_profiles_merge_into_one_row() -> None:
     result = ComparisonResult(
         compared_profiles=("a", "b", "c"),
         entries=(
-            MissingTable(schema_name="dbo", table_name="Productos", missing_from_profile="b"),
-            MissingTable(schema_name="dbo", table_name="Productos", missing_from_profile="c"),
+            MissingTable(
+                schema_name="dbo", table_name="Productos", missing_from_profile="b"
+            ),
+            MissingTable(
+                schema_name="dbo", table_name="Productos", missing_from_profile="c"
+            ),
         ),
     )
 
@@ -33,11 +37,15 @@ def test_missing_column_siblings_for_same_column_merge_into_one_row() -> None:
         compared_profiles=("a", "b", "c"),
         entries=(
             MissingColumn(
-                schema_name="dbo", table_name="Productos", column_name="notes",
+                schema_name="dbo",
+                table_name="Productos",
+                column_name="notes",
                 missing_from_profile="b",
             ),
             MissingColumn(
-                schema_name="dbo", table_name="Productos", column_name="notes",
+                schema_name="dbo",
+                table_name="Productos",
+                column_name="notes",
                 missing_from_profile="c",
             ),
         ),
@@ -54,11 +62,15 @@ def test_different_columns_never_merge_into_the_same_row() -> None:
         compared_profiles=("a", "b"),
         entries=(
             MissingColumn(
-                schema_name="dbo", table_name="Productos", column_name="amount",
+                schema_name="dbo",
+                table_name="Productos",
+                column_name="amount",
                 missing_from_profile="b",
             ),
             MissingColumn(
-                schema_name="dbo", table_name="Productos", column_name="notes",
+                schema_name="dbo",
+                table_name="Productos",
+                column_name="notes",
                 missing_from_profile="b",
             ),
         ),
@@ -76,12 +88,16 @@ def test_missing_column_and_column_mismatch_stay_separate_rows() -> None:
         compared_profiles=("a", "b", "c"),
         entries=(
             MissingColumn(
-                schema_name="dbo", table_name="Productos", column_name="amount",
+                schema_name="dbo",
+                table_name="Productos",
+                column_name="amount",
                 missing_from_profile="c",
                 present_attributes=(("a", attrs), ("b", attrs)),
             ),
             ColumnMismatch(
-                schema_name="dbo", table_name="Productos", column_name="amount",
+                schema_name="dbo",
+                table_name="Productos",
+                column_name="amount",
                 values_by_profile=(("a", attrs), ("b", attrs)),
             ),
         ),
@@ -90,15 +106,22 @@ def test_missing_column_and_column_mismatch_stay_separate_rows() -> None:
     _, rows = grouped_rows_by_table(result)[0]
 
     assert len(rows) == 2
-    assert [type(group[0]).__name__ for group in rows] == ["MissingColumn", "ColumnMismatch"]
+    assert [type(group[0]).__name__ for group in rows] == [
+        "MissingColumn",
+        "ColumnMismatch",
+    ]
 
 
 def test_different_tables_are_separate_groups() -> None:
     result = ComparisonResult(
         compared_profiles=("a", "b"),
         entries=(
-            MissingTable(schema_name="dbo", table_name="Alpha", missing_from_profile="b"),
-            MissingTable(schema_name="dbo", table_name="Beta", missing_from_profile="b"),
+            MissingTable(
+                schema_name="dbo", table_name="Alpha", missing_from_profile="b"
+            ),
+            MissingTable(
+                schema_name="dbo", table_name="Beta", missing_from_profile="b"
+            ),
         ),
     )
 

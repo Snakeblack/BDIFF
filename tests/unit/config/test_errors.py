@@ -50,5 +50,7 @@ def test_unrecognized_connection_string_format_factory_contains_only_name() -> N
     # so there is nothing to accidentally interpolate into the message.
     import inspect
 
-    signature = inspect.signature(ProfileValidationError.unrecognized_connection_string_format)
+    signature = inspect.signature(
+        ProfileValidationError.unrecognized_connection_string_format
+    )
     assert list(signature.parameters) == ["name"]

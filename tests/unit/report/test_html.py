@@ -19,9 +19,7 @@ def _golden_substrings(name: str) -> list[str]:
 def test_build_context_missing_table_marks_profile_distinctly() -> None:
     context = build_context(comparison_result_with_findings())
 
-    payment_group = next(
-        g for g in context["groups"] if g["table_name"] == "Payment"
-    )
+    payment_group = next(g for g in context["groups"] if g["table_name"] == "Payment")
     row = payment_group["rows"][0]
     assert row["diff_type"] == "MissingTable"
     assert row["cells"]["c"] == {"kind": "missing", "text": "\u274c"}
@@ -33,9 +31,19 @@ def test_build_context_table_missing_from_multiple_profiles_is_a_single_row() ->
     result = ComparisonResult(
         compared_profiles=("catalog", "orders", "warehouse", "analytics"),
         entries=(
-            MissingTable(schema_name="dbo", table_name="Products", missing_from_profile="orders"),
-            MissingTable(schema_name="dbo", table_name="Products", missing_from_profile="warehouse"),
-            MissingTable(schema_name="dbo", table_name="Products", missing_from_profile="analytics"),
+            MissingTable(
+                schema_name="dbo", table_name="Products", missing_from_profile="orders"
+            ),
+            MissingTable(
+                schema_name="dbo",
+                table_name="Products",
+                missing_from_profile="warehouse",
+            ),
+            MissingTable(
+                schema_name="dbo",
+                table_name="Products",
+                missing_from_profile="analytics",
+            ),
         ),
     )
 
@@ -53,9 +61,7 @@ def test_build_context_table_missing_from_multiple_profiles_is_a_single_row() ->
 def test_build_context_missing_column_marks_profile_distinctly() -> None:
     context = build_context(comparison_result_with_findings())
 
-    invoice_group = next(
-        g for g in context["groups"] if g["table_name"] == "Invoice"
-    )
+    invoice_group = next(g for g in context["groups"] if g["table_name"] == "Invoice")
     row = next(r for r in invoice_group["rows"] if r["diff_type"] == "MissingColumn")
     assert row["column_name"] == "notes"
     assert row["cells"]["c"] == {"kind": "missing", "text": "\u274c"}
@@ -63,12 +69,12 @@ def test_build_context_missing_column_marks_profile_distinctly() -> None:
     assert row["cells"]["b"] == {"kind": "value", "text": "varchar(255), NULL"}
 
 
-def test_build_context_column_mismatch_renders_present_profiles_and_blanks_absent() -> None:
+def test_build_context_column_mismatch_renders_present_profiles_and_blanks_absent() -> (
+    None
+):
     context = build_context(comparison_result_with_findings())
 
-    invoice_group = next(
-        g for g in context["groups"] if g["table_name"] == "Invoice"
-    )
+    invoice_group = next(g for g in context["groups"] if g["table_name"] == "Invoice")
     row = next(r for r in invoice_group["rows"] if r["diff_type"] == "ColumnMismatch")
     assert row["column_name"] == "amount"
     assert row["cells"]["a"]["kind"] == "value"

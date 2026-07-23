@@ -30,7 +30,13 @@ from schema_comparator.tui.formatting import build_tree_data, detail_text, leaf_
 
 @pytest.fixture
 def all_diff_entries():
-    col_attr = ColumnAttributes(data_type="int", character_maximum_length=None, numeric_precision=10, numeric_scale=0, is_nullable=False)
+    col_attr = ColumnAttributes(
+        data_type="int",
+        character_maximum_length=None,
+        numeric_precision=10,
+        numeric_scale=0,
+        is_nullable=False,
+    )
 
     named_col = NamedColumnAttributes(name="id", attributes=col_attr)
 
@@ -69,7 +75,10 @@ def all_diff_entries():
         table_name="Orders",
         fk_name="FK_Orders_Users",
         values_by_profile=(
-            ("Profile1", ForeignKeySnapshot("FK_Orders_Users", ("user_id",), "Users", ("id",))),
+            (
+                "Profile1",
+                ForeignKeySnapshot("FK_Orders_Users", ("user_id",), "Users", ("id",)),
+            ),
             ("Profile2", None),
         ),
     )
@@ -87,15 +96,28 @@ def all_diff_entries():
         procedure_name="sp_CalculateDiscount",
         missing_from_profile="Profile2",
         present_procedures=(
-            ("Profile1", ProcedureSnapshot("dbo", "sp_CalculateDiscount", parameters=(ParameterSnapshot("@Rate", "decimal"),))),
+            (
+                "Profile1",
+                ProcedureSnapshot(
+                    "dbo",
+                    "sp_CalculateDiscount",
+                    parameters=(ParameterSnapshot("@Rate", "decimal"),),
+                ),
+            ),
         ),
     )
     proc_mismatch = ProcedureMismatch(
         schema_name="dbo",
         procedure_name="sp_GetProfile",
         values_by_profile=(
-            ("Profile1", ProcedureSnapshot("dbo", "sp_GetProfile", definition_hash="hashA")),
-            ("Profile2", ProcedureSnapshot("dbo", "sp_GetProfile", definition_hash="hashB")),
+            (
+                "Profile1",
+                ProcedureSnapshot("dbo", "sp_GetProfile", definition_hash="hashA"),
+            ),
+            (
+                "Profile2",
+                ProcedureSnapshot("dbo", "sp_GetProfile", definition_hash="hashB"),
+            ),
         ),
     )
 

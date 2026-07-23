@@ -7,7 +7,11 @@ from schema_comparator.domain.comparison.type_equivalences import (
     are_types_semantically_equivalent,
     get_type_family,
 )
-from schema_comparator.domain.schema.models import ColumnSnapshot, SchemaSnapshot, TableSnapshot
+from schema_comparator.domain.schema.models import (
+    ColumnSnapshot,
+    SchemaSnapshot,
+    TableSnapshot,
+)
 
 
 def test_type_family_mapping() -> None:
@@ -51,7 +55,9 @@ def test_semantic_comparison_suppresses_equivalent_mismatches() -> None:
 
     # Semantic equivalent mode ignores equivalent type mismatch
     semantic_res = compare_snapshots([s1, s2], mode=ComparisonMode.SEMANTIC_EQUIVALENT)
-    semantic_mismatches = [e for e in semantic_res.entries if isinstance(e, ColumnMismatch)]
+    semantic_mismatches = [
+        e for e in semantic_res.entries if isinstance(e, ColumnMismatch)
+    ]
     assert len(semantic_mismatches) == 0
 
 
@@ -68,5 +74,7 @@ def test_semantic_comparison_still_flags_length_and_attribute_mismatches() -> No
 
     # Semantic mode MUST flag mismatch due to length difference (50 vs 100)
     semantic_res = compare_snapshots([s1, s2], mode=ComparisonMode.SEMANTIC_EQUIVALENT)
-    semantic_mismatches = [e for e in semantic_res.entries if isinstance(e, ColumnMismatch)]
+    semantic_mismatches = [
+        e for e in semantic_res.entries if isinstance(e, ColumnMismatch)
+    ]
     assert len(semantic_mismatches) == 1

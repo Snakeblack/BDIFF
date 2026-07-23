@@ -18,10 +18,7 @@ async def test_status_log_info_writes_message() -> None:
         log = app.query_one(StatusLog)
         log.info("Comparación actualizada.")
 
-        assert any(
-            "Comparación actualizada." in str(line)
-            for line in log.lines
-        )
+        assert any("Comparación actualizada." in str(line) for line in log.lines)
 
 
 @pytest.mark.asyncio
@@ -38,8 +35,7 @@ async def test_status_log_error_writes_styled_message() -> None:
         log.error("Falló la comparación: boom")
 
         assert any(
-            "Fall\u00f3 la comparaci\u00f3n: boom" in str(line)
-            for line in log.lines
+            "Fall\u00f3 la comparaci\u00f3n: boom" in str(line) for line in log.lines
         )
 
 

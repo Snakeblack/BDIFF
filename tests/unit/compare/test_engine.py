@@ -8,7 +8,12 @@ from schema_comparator.compare.models import (
     MissingTable,
     NamedColumnAttributes,
 )
-from compare.conftest import make_column, make_snapshot, make_snapshot_with_tables, make_table
+from compare.conftest import (
+    make_column,
+    make_snapshot,
+    make_snapshot_with_tables,
+    make_table,
+)
 
 
 def test_valid_multi_profile_input_is_accepted() -> None:
@@ -56,7 +61,9 @@ def test_table_missing_from_one_of_three_profiles() -> None:
 
     assert result.entries == (
         MissingTable(
-            schema_name="sales", table_name="Payment", missing_from_profile="c",
+            schema_name="sales",
+            table_name="Payment",
+            missing_from_profile="c",
             present_columns=(("a", ()), ("b", ())),
         ),
     )
@@ -120,9 +127,7 @@ def test_identical_snapshots_produce_an_empty_diff() -> None:
 
 def test_column_missing_from_one_profile_of_matched_table() -> None:
     notes = make_column("notes")
-    a = make_snapshot_with_tables(
-        "a", make_table("sales", "Invoice", notes)
-    )
+    a = make_snapshot_with_tables("a", make_table("sales", "Invoice", notes))
     b = make_snapshot_with_tables("b", make_table("sales", "Invoice"))
 
     result = compare_snapshots([a, b])
@@ -141,12 +146,8 @@ def test_column_missing_from_one_profile_of_matched_table() -> None:
 def test_column_missing_from_a_subset_of_matched_tables_profiles() -> None:
     notes_a = make_column("notes")
     notes_b = make_column("notes")
-    a = make_snapshot_with_tables(
-        "a", make_table("sales", "Invoice", notes_a)
-    )
-    b = make_snapshot_with_tables(
-        "b", make_table("sales", "Invoice", notes_b)
-    )
+    a = make_snapshot_with_tables("a", make_table("sales", "Invoice", notes_a))
+    b = make_snapshot_with_tables("b", make_table("sales", "Invoice", notes_b))
     c = make_snapshot_with_tables("c", make_table("sales", "Invoice"))
     d = make_snapshot_with_tables("d", make_table("sales", "Invoice"))
 
@@ -206,8 +207,24 @@ def test_table_missing_entirely_produces_no_missing_column_entries_for_that_prof
             table_name="Invoice",
             missing_from_profile="c",
             present_columns=(
-                ("a", (NamedColumnAttributes(name="notes", attributes=ColumnAttributes("int", None, None, None, False)),)),
-                ("b", (NamedColumnAttributes(name="notes", attributes=ColumnAttributes("int", None, None, None, False)),)),
+                (
+                    "a",
+                    (
+                        NamedColumnAttributes(
+                            name="notes",
+                            attributes=ColumnAttributes("int", None, None, None, False),
+                        ),
+                    ),
+                ),
+                (
+                    "b",
+                    (
+                        NamedColumnAttributes(
+                            name="notes",
+                            attributes=ColumnAttributes("int", None, None, None, False),
+                        ),
+                    ),
+                ),
             ),
         ),
     )
@@ -227,7 +244,15 @@ def test_table_present_in_only_one_profile_produces_no_column_level_entries() ->
             table_name="Invoice",
             missing_from_profile="b",
             present_columns=(
-                ("a", (NamedColumnAttributes(name="notes", attributes=ColumnAttributes("int", None, None, None, False)),)),
+                (
+                    "a",
+                    (
+                        NamedColumnAttributes(
+                            name="notes",
+                            attributes=ColumnAttributes("int", None, None, None, False),
+                        ),
+                    ),
+                ),
             ),
         ),
     )
@@ -426,7 +451,15 @@ def test_cross_type_ordering_missing_table_before_missing_column_before_mismatch
             table_name="Payment",
             missing_from_profile="b",
             present_columns=(
-                ("a", (NamedColumnAttributes(name="id", attributes=ColumnAttributes("int", None, None, None, False)),)),
+                (
+                    "a",
+                    (
+                        NamedColumnAttributes(
+                            name="id",
+                            attributes=ColumnAttributes("int", None, None, None, False),
+                        ),
+                    ),
+                ),
             ),
         ),
     )
@@ -449,9 +482,7 @@ def test_same_type_entries_for_the_same_table_are_ordered_by_column_name() -> No
     assert [entry.column_name for entry in result.entries] == ["alpha", "zeta"]
 
 
-def test_column_level_entries_ordering_is_independent_of_input_snapshot_order() -> (
-    None
-):
+def test_column_level_entries_ordering_is_independent_of_input_snapshot_order() -> None:
     a = make_snapshot_with_tables(
         "a",
         make_table(

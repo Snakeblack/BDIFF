@@ -24,7 +24,9 @@ class PostgreSqlProvider:
         """Validate PostgreSQL profile settings."""
         profile_parser.validate_postgresql_profile(profile)
 
-    def capabilities(self, profile: ConnectionProfile | None = None) -> ProviderCapabilities:
+    def capabilities(
+        self, profile: ConnectionProfile | None = None
+    ) -> ProviderCapabilities:
         """Return capabilities supported by PostgreSQL."""
         return ProviderCapabilities(
             provider_id="postgresql",

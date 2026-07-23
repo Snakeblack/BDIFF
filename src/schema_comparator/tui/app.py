@@ -184,7 +184,6 @@ class SchemaComparatorApp(App):
         Binding("d,D", "open_decision_screen", "Consolidar Diferencias"),
     ]
 
-
     filter_text: reactive[str] = reactive("")
 
     def __init__(
@@ -217,7 +216,10 @@ class SchemaComparatorApp(App):
                     yield DetailPanel(id="detail-panel")
         with Horizontal(id="bottom-container"):
             with Vertical(id="exclude-container"):
-                yield Label("Excluir tablas (coincidencia de texto, separadas por espacio):", id="exclude-label")
+                yield Label(
+                    "Excluir tablas (coincidencia de texto, separadas por espacio):",
+                    id="exclude-label",
+                )
                 yield ExcludeEditor(self._exclude_patterns, id="exclude-editor")
             with Vertical(id="log-container"):
                 yield Label("Registro de actividad:", id="log-label")
@@ -299,22 +301,31 @@ class SchemaComparatorApp(App):
 
     def action_open_decision_screen(self) -> None:
         from schema_comparator.tui.decision_screen import DecisionScreen
-        from schema_comparator.compare.models import ColumnMismatch, MissingColumn, MissingTable
+        from schema_comparator.compare.models import (
+            ColumnMismatch,
+            MissingColumn,
+            MissingTable,
+        )
         from pathlib import Path
 
         relevant_entries = [
-            e for e in self._result.entries
+            e
+            for e in self._result.entries
             if isinstance(e, (ColumnMismatch, MissingColumn, MissingTable))
         ]
         if not relevant_entries:
-            self.query_one(StatusLog).info("No hay diferencias de tablas, atributos o columnas para consolidar.")
+            self.query_one(StatusLog).info(
+                "No hay diferencias de tablas, atributos o columnas para consolidar."
+            )
             return
 
         def handle_decision_screen_result(result) -> None:
             if result is None:
                 self.query_one(StatusLog).info("Consolidación cancelada.")
             elif not result:
-                self.query_one(StatusLog).info("Consolidación exitosa. No se generaron archivos SQL.")
+                self.query_one(StatusLog).info(
+                    "Consolidación exitosa. No se generaron archivos SQL."
+                )
             else:
                 subfolder = Path(result[0]).parent.name
                 self.query_one(StatusLog).info(
@@ -328,6 +339,7 @@ class SchemaComparatorApp(App):
         profiles_to_pass = self._profiles
         if not profiles_to_pass:
             from schema_comparator.config.models import ConnectionProfile
+
             profiles_to_pass = [
                 ConnectionProfile(name=p, connection_string=f"Database={p};")
                 for p in self._result.compared_profiles
@@ -337,9 +349,9 @@ class SchemaComparatorApp(App):
             DecisionScreen(
                 entries=tuple(relevant_entries),
                 profiles=tuple(profiles_to_pass),
-                repo_root=repo_root
+                repo_root=repo_root,
             ),
-            callback=handle_decision_screen_result
+            callback=handle_decision_screen_result,
         )
 
     def action_open_sp_verification(self) -> None:
@@ -364,7 +376,6 @@ class SchemaComparatorApp(App):
         )
 
 
-
 def run_tui(
     result: ComparisonResult,
     *,
@@ -381,4 +392,3 @@ def run_tui(
         app.run()
     except Exception as exc:
         print(f"[ERROR] Falló la interfaz interactiva: {exc}", file=sys.stderr)
-

@@ -4,8 +4,14 @@ from typing import Callable, Sequence
 
 from schema_comparator.compare.engine import compare_snapshots
 from schema_comparator.config.models import ConnectionProfile
-from schema_comparator.discovery.filters import filter_excluded_routines, filter_excluded_tables
-from schema_comparator.domain.comparison.models import ComparisonFilters, ComparisonResult
+from schema_comparator.discovery.filters import (
+    filter_excluded_routines,
+    filter_excluded_tables,
+)
+from schema_comparator.domain.comparison.models import (
+    ComparisonFilters,
+    ComparisonResult,
+)
 from schema_comparator.domain.schema.models import SchemaSnapshot
 
 
@@ -20,8 +26,12 @@ class CompareProfilesUseCase:
         self,
         *,
         extractor: Callable[[ConnectionProfile], SchemaSnapshot],
-        filter_fn: Callable[[SchemaSnapshot, Sequence[str]], SchemaSnapshot] = filter_excluded_tables,
-        compare_fn: Callable[[Sequence[SchemaSnapshot]], ComparisonResult] = compare_snapshots,
+        filter_fn: Callable[
+            [SchemaSnapshot, Sequence[str]], SchemaSnapshot
+        ] = filter_excluded_tables,
+        compare_fn: Callable[
+            [Sequence[SchemaSnapshot]], ComparisonResult
+        ] = compare_snapshots,
     ) -> None:
         self._extractor = extractor
         self._filter_fn = filter_fn
@@ -46,7 +56,9 @@ class CompareProfilesUseCase:
             ex_tables = ()
             ex_routines = ()
 
-        snapshots: list[SchemaSnapshot] = [self._extractor(profile) for profile in profiles]
+        snapshots: list[SchemaSnapshot] = [
+            self._extractor(profile) for profile in profiles
+        ]
 
         filtered_snapshots: list[SchemaSnapshot] = []
         for snap in snapshots:

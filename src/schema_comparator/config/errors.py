@@ -75,7 +75,9 @@ class ProfileValidationError(ConfigError):
         )
 
     @classmethod
-    def unrecognized_connection_string_format(cls, name: str) -> "ProfileValidationError":
+    def unrecognized_connection_string_format(
+        cls, name: str
+    ) -> "ProfileValidationError":
         return cls(
             f"El perfil de conexión '{name}' tiene una cadena de conexión "
             "en un formato no reconocido o malformado (no se encontró "

@@ -20,20 +20,28 @@ def _column(name="id", ordinal=1) -> ColumnSnapshot:
 
 
 def test_qualified_name_returns_schema_and_table_pair() -> None:
-    table = TableSnapshot(schema_name="sales", table_name="Invoice", columns=(_column(),))
+    table = TableSnapshot(
+        schema_name="sales", table_name="Invoice", columns=(_column(),)
+    )
     assert table.qualified_name == ("sales", "Invoice")
 
 
 def test_same_named_tables_in_different_schemas_are_distinct() -> None:
-    sales_invoice = TableSnapshot(schema_name="sales", table_name="Invoice", columns=(_column(),))
-    archive_invoice = TableSnapshot(schema_name="archive", table_name="Invoice", columns=(_column(),))
+    sales_invoice = TableSnapshot(
+        schema_name="sales", table_name="Invoice", columns=(_column(),)
+    )
+    archive_invoice = TableSnapshot(
+        schema_name="archive", table_name="Invoice", columns=(_column(),)
+    )
 
     assert sales_invoice.qualified_name != archive_invoice.qualified_name
     assert sales_invoice != archive_invoice
 
 
 def test_table_snapshot_is_immutable() -> None:
-    table = TableSnapshot(schema_name="sales", table_name="Invoice", columns=(_column(),))
+    table = TableSnapshot(
+        schema_name="sales", table_name="Invoice", columns=(_column(),)
+    )
     with pytest.raises(dataclasses.FrozenInstanceError):
         table.table_name = "Changed"  # type: ignore[misc]
 
