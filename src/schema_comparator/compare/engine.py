@@ -14,15 +14,21 @@ from schema_comparator.compare.models import (
     ForeignKeyMismatch,
     IndexMismatch,
     MissingColumn,
+    MissingProcedure,
     MissingTable,
     NamedColumnAttributes,
     PrimaryKeyMismatch,
+    ProcedureMismatch,
 )
 from schema_comparator.domain.capabilities import ComparisonMode
 from schema_comparator.domain.comparison.type_equivalences import (
     are_types_semantically_equivalent,
 )
-from schema_comparator.domain.schema.models import SchemaSnapshot, TableSnapshot
+from schema_comparator.domain.schema.models import (
+    ProcedureSnapshot,
+    SchemaSnapshot,
+    TableSnapshot,
+)
 
 
 def _validate(snapshots: Sequence[SchemaSnapshot]) -> None:
@@ -287,6 +293,72 @@ def _evaluate_advanced_objects(
     return tuple(entries)
 
 
+def _evaluate_procedures(
+    snapshots: Sequence[SchemaSnapshot],
+    profile_names: tuple[str, ...],
+) -> tuple[MissingProcedure | ProcedureMismatch, ...]:
+    entries: list[MissingProcedure | ProcedureMismatch] = []
+
+    proc_index: dict[str, dict[tuple[str, str], ProcedureSnapshot]] = {
+        s.profile_name: {p.qualified_name: p for p in s.procedures}
+        for s in snapshots
+    }
+
+    union_procs: set[tuple[str, str]] = set()
+    presence_procs: dict[str, set[tuple[str, str]]] = {}
+    for s in snapshots:
+        identities = {p.qualified_name for p in s.procedures}
+        union_procs |= identities
+        presence_procs[s.profile_name] = identities
+
+    for schema_name, proc_name in sorted(union_procs):
+        identity = (schema_name, proc_name)
+        missing_from = sorted(
+            name for name in profile_names if identity not in presence_procs[name]
+        )
+        present_profiles = sorted(
+            name for name in profile_names if identity in presence_procs[name]
+        )
+
+        present_procs_list = tuple(
+            (p, proc_index[p][identity]) for p in present_profiles
+        )
+
+        if missing_from:
+            entries.extend(
+                MissingProcedure(
+                    schema_name=schema_name,
+                    procedure_name=proc_name,
+                    missing_from_profile=name,
+                    present_procedures=present_procs_list,
+                )
+                for name in missing_from
+            )
+
+        if len(present_profiles) >= 2:
+            first_proc = present_procs_list[0][1]
+            has_mismatch = False
+            for _, p_snap in present_procs_list[1:]:
+                if (
+                    p_snap.parameters != first_proc.parameters
+                    or p_snap.definition_hash != first_proc.definition_hash
+                ):
+
+                    has_mismatch = True
+                    break
+
+            if has_mismatch:
+                entries.append(
+                    ProcedureMismatch(
+                        schema_name=schema_name,
+                        procedure_name=proc_name,
+                        values_by_profile=present_procs_list,
+                    )
+                )
+
+    return tuple(entries)
+
+
 _TYPE_RANK: dict[type, int] = {
     MissingTable: 0,
     MissingColumn: 1,
@@ -294,17 +366,20 @@ _TYPE_RANK: dict[type, int] = {
     PrimaryKeyMismatch: 3,
     ForeignKeyMismatch: 4,
     IndexMismatch: 5,
+    MissingProcedure: 6,
+    ProcedureMismatch: 7,
 }
 
 
 def _sort_key(
     entry: DiffEntry,
 ) -> tuple[str, str, int, str, str]:
+    table_or_proc = getattr(entry, "table_name", getattr(entry, "procedure_name", ""))
     return (
         entry.schema_name,
-        entry.table_name,
+        table_or_proc,
         _TYPE_RANK[type(entry)],
-        getattr(entry, "column_name", getattr(entry, "fk_name", getattr(entry, "index_name", ""))),
+        getattr(entry, "column_name", getattr(entry, "procedure_name", getattr(entry, "fk_name", getattr(entry, "index_name", "")))),
         getattr(entry, "missing_from_profile", ""),
     )
 
@@ -322,6 +397,7 @@ def compare_snapshots(
     table_entries = _evaluate_tables(union, presence, table_index, profile_names)
     column_entries = _evaluate_columns(union, presence, table_index, profile_names, mode=mode)
     advanced_entries = _evaluate_advanced_objects(union, presence, table_index, profile_names)
+    procedure_entries = _evaluate_procedures(snapshots, profile_names)
 
-    entries = tuple(sorted(table_entries + column_entries + advanced_entries, key=_sort_key))
+    entries = tuple(sorted(table_entries + column_entries + advanced_entries + procedure_entries, key=_sort_key))
     return ComparisonResult(compared_profiles=profile_names, entries=entries)

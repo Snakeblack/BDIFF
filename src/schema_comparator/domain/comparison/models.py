@@ -7,6 +7,7 @@ from schema_comparator.domain.schema.models import (
     ForeignKeySnapshot,
     IndexSnapshot,
     PrimaryKeySnapshot,
+    ProcedureSnapshot,
 )
 
 
@@ -138,6 +139,33 @@ class IndexMismatch:
         return (self.schema_name, self.table_name)
 
 
+@dataclass(frozen=True, slots=True)
+class MissingProcedure:
+    """A procedure/routine present in baseline/profiles but absent from one profile."""
+
+    schema_name: str
+    procedure_name: str
+    missing_from_profile: str
+    present_procedures: tuple[tuple[str, ProcedureSnapshot], ...] = ()
+
+    @property
+    def qualified_name(self) -> tuple[str, str]:
+        return (self.schema_name, self.procedure_name)
+
+
+@dataclass(frozen=True, slots=True)
+class ProcedureMismatch:
+    """A procedure/routine present in 2+ profiles with parameter or definition differences."""
+
+    schema_name: str
+    procedure_name: str
+    values_by_profile: tuple[tuple[str, ProcedureSnapshot], ...]
+
+    @property
+    def qualified_name(self) -> tuple[str, str]:
+        return (self.schema_name, self.procedure_name)
+
+
 DiffEntry = (
     MissingTable
     | MissingColumn
@@ -145,7 +173,10 @@ DiffEntry = (
     | PrimaryKeyMismatch
     | ForeignKeyMismatch
     | IndexMismatch
+    | MissingProcedure
+    | ProcedureMismatch
 )
+
 
 
 @dataclass(frozen=True, slots=True)

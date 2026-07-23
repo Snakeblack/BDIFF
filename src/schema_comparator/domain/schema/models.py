@@ -75,12 +75,46 @@ class TableSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class ParameterSnapshot:
+    """Stored procedure / routine parameter metadata."""
+
+    name: str
+    data_type: str
+    character_maximum_length: int | None = None
+    numeric_precision: int | None = None
+    numeric_scale: int | None = None
+    is_output: bool = False
+    ordinal_position: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class ProcedureSnapshot:
+    """One stored procedure or routine metadata.
+
+    Identified by `(schema_name, procedure_name)`.
+    `definition_hash` is an optional hash of normalized T-SQL body for drift detection.
+    """
+
+    schema_name: str
+    procedure_name: str
+    routine_type: str = "PROCEDURE"  # 'PROCEDURE', 'FUNCTION', etc.
+    parameters: tuple[ParameterSnapshot, ...] = ()
+    definition_hash: str | None = None
+    definition_sql: str | None = None
+
+    @property
+    def qualified_name(self) -> tuple[str, str]:
+        return (self.schema_name, self.procedure_name)
+
+
+@dataclass(frozen=True, slots=True)
 class SchemaSnapshot:
     """The full extraction result for one profile.
 
-    `tables` is already sorted (schema, then table name) at construction
-    time.
+    `tables` and `procedures` are sorted at construction time.
     """
 
     profile_name: str
     tables: tuple[TableSnapshot, ...]
+    procedures: tuple[ProcedureSnapshot, ...] = ()
+
