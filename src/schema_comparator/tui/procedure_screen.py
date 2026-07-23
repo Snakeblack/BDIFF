@@ -45,7 +45,7 @@ class ConfirmRefreshModal(ModalScreen[bool]):
     }
     #confirm-buttons {
         margin-top: 1;
-        horizontal-align: center;
+        align-horizontal: center;
     }
     #confirm-buttons Button {
         margin: 0 1;
